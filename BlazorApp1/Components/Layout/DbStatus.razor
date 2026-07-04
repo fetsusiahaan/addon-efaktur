@@ -1,0 +1,127 @@
+@rendermode InteractiveServer
+@using BlazorApp1.Services
+@using Radzen
+@implements IDisposable
+@inject DbManagerService DbMgr
+@inject NotificationService Notifications
+
+<div class="db-status db-status--@_state.ToString().ToLowerInvariant()" title="@_tooltip">
+    <span class="db-status-dot"></span>
+    <span class="db-status-text">@_label</span>
+</div>
+
+<RadzenComponents />
+
+@code {
+    private enum St { Checking, Connected, Disconnected, NoActive }
+
+    private St _state = St.Checking;
+    private St _prevState = St.Checking;
+    private string _label = "Memeriksa koneksi...";
+    private string? _tooltip = "Memeriksa koneksi database aktif";
+
+    private static readonly TimeSpan Interval = TimeSpan.FromSeconds(2);
+    private PeriodicTimer? _timer;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _cts = new CancellationTokenSource();
+        await CheckAndRenderAsync();   // cek pertama segera
+        _ = RunLoopAsync(_cts.Token);  // lalu berkala (realtime)
+    }
+
+    private async Task RunLoopAsync(CancellationToken ct)
+    {
+        _timer = new PeriodicTimer(Interval);
+        try
+        {
+            while (await _timer.WaitForNextTickAsync(ct))
+                await CheckAndRenderAsync();
+        }
+        catch (OperationCanceledException) { /* dibatalkan saat dispose */ }
+    }
+
+    private async Task CheckAndRenderAsync()
+    {
+        await CheckAsync();
+        NotifyOnChange();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // Munculkan toast hanya saat status BERUBAH (tidak spam tiap tick).
+    private void NotifyOnChange()
+    {
+        if (_state == _prevState) return;
+
+        switch (_state)
+        {
+            case St.Disconnected:
+                Notifications.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Error,
+                    Summary = "Koneksi Database Terputus",
+                    Detail = $"'{_label}' tidak dapat dihubungi — server DB mati atau tidak ada koneksi internet.",
+                    Duration = 8000
+                });
+                break;
+
+            case St.NoActive:
+                Notifications.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Warning,
+                    Summary = "Tidak Ada Koneksi Aktif",
+                    Detail = "Aktifkan salah satu koneksi di Database Manager.",
+                    Duration = 6000
+                });
+                break;
+
+            case St.Connected when _prevState is St.Disconnected or St.NoActive:
+                Notifications.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "Koneksi Database Pulih",
+                    Detail = $"'{_label}' kembali terhubung.",
+                    Duration = 4000
+                });
+                break;
+        }
+
+        _prevState = _state;
+    }
+
+    private async Task CheckAsync()
+    {
+        var active = DbMgr.GetActive();
+        if (active is null)
+        {
+            _state = St.NoActive;
+            _label = "Tidak ada koneksi aktif";
+            _tooltip = "Aktifkan salah satu koneksi di Database Manager";
+            return;
+        }
+
+        var (ok, err) = await DbMgr.TestAsync(active, TimeSpan.FromSeconds(5));
+        if (ok)
+        {
+            _state = St.Connected;
+            _label = active.Nama;
+            _tooltip = $"Terhubung — {active.Nama} ({active.JenisDb})";
+        }
+        else
+        {
+            _state = St.Disconnected;
+            _label = active.Nama;
+            _tooltip = $"Gagal terhubung — {active.Nama}: {err}";
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _timer?.Dispose();
+        _cts?.Dispose();
+    }
+}

@@ -1,0 +1,65 @@
+.db-status {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .3rem .75rem;
+    border-radius: 999px;
+    font-size: .8rem;
+    font-weight: 600;
+    line-height: 1;
+    border: 1px solid transparent;
+    max-width: 260px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.db-status-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.db-status-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    background: currentColor;
+}
+
+/* Terhubung */
+.db-status--connected {
+    color: #157347;
+    background: #e6f4ec;
+    border-color: #b7e0c6;
+}
+
+/* Gagal terhubung */
+.db-status--disconnected {
+    color: #b02a37;
+    background: #fbe9eb;
+    border-color: #f1b6bc;
+}
+
+/* Tidak ada koneksi aktif */
+.db-status--noactive {
+    color: #6c757d;
+    background: #f1f3f5;
+    border-color: #dee2e6;
+}
+
+/* Sedang memeriksa */
+.db-status--checking {
+    color: #997404;
+    background: #fdf6e3;
+    border-color: #f5e2a3;
+}
+
+.db-status--checking .db-status-dot,
+.db-status--connected .db-status-dot {
+    animation: db-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes db-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .35; }
+}

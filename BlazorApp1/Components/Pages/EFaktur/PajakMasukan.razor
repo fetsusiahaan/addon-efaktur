@@ -1,0 +1,226 @@
+@page "/efaktur/pajak-masukan"
+@rendermode InteractiveServer
+@using BlazorApp1.Models
+@using BlazorApp1.Services
+@using Radzen.Blazor
+@inject SapQueryService QuerySvc
+
+<PageTitle>Pajak Masukan</PageTitle>
+
+<div class="ef-page">
+
+    <div class="mb-3">
+        <h1 class="h4 mb-0">Pajak Masukan</h1>
+        <small class="text-muted">E-Faktur</small>
+    </div>
+
+    @* ---------- Panel Filter ---------- *@
+    <div class="ef-card ef-filter mb-3">
+        <div class="row g-3">
+
+            @* ===== Kolom kiri: field filter ===== *@
+            <div class="col-md-8">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="ef-label">Search by</label>
+                        <select class="form-select" @bind="searchBy">
+                            <option>Invoice Number</option>
+                            <option>Date</option>
+                            <option>Vendor</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="ef-label">Document Number</label>
+                        <input class="form-control" />
+                    </div>
+
+                    @if (searchBy == "Invoice Number")
+                    {
+                        <div class="col-md-6">
+                            <label class="ef-label">From Number</label>
+                            <input class="form-control" placeholder="Start number..." />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="ef-label">To Number</label>
+                            <input class="form-control" placeholder="End number..." />
+                        </div>
+                    }
+                    else if (searchBy == "Date")
+                    {
+                        <div class="col-md-6">
+                            <label class="ef-label">From Date</label>
+                            <input type="date" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="ef-label">To Date</label>
+                            <input type="date" class="form-control" />
+                        </div>
+                    }
+                    else if (searchBy == "Vendor")
+                    {
+                        <div class="col-md-6">
+                            <label class="ef-label">From Customer</label>
+                            <input class="form-control" placeholder="Start identifier..." />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="ef-label">To Customer</label>
+                            <input class="form-control" placeholder="End identifier..." />
+                        </div>
+                    }
+
+                    <div class="col-md-6">
+                        <label class="ef-label">Canceled</label>
+                        <select class="form-select">
+                            <option>No</option>
+                            <option>Yes</option>
+                            <option>All</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            @* ===== Kolom kanan: Document Type + Load Data ===== *@
+            <div class="col-md-4 d-flex flex-column">
+                <label class="ef-label">Document Type</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="dtInvoice" @bind="dtInvoice" />
+                    <label class="form-check-label" for="dtInvoice">Invoice</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="dtDownPayment" @bind="dtDownPayment" />
+                    <label class="form-check-label" for="dtDownPayment">Down Payment</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="dtRefCreditMemo" @bind="dtRefCreditMemo" />
+                    <label class="form-check-label" for="dtRefCreditMemo">Ref Credit Memo</label>
+                </div>
+                <div class="mt-auto text-end pt-3">
+                    <button type="button" class="btn ef-btn-primary" @onclick="LoadData" disabled="@loading">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Load Data
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    @* ---------- Grid data (dinamis dari hasil query) ---------- *@
+    <div class="ef-card ef-grid mb-3">
+        @if (loading)
+        {
+            <div class="text-center text-muted py-5">
+                <div class="spinner-border text-secondary" role="status"></div>
+                <div class="mt-2">Memuat data...</div>
+            </div>
+        }
+        else if (result?.Error is not null)
+        {
+            <div class="alert alert-danger m-3 mb-0">
+                <strong>Gagal memuat data.</strong><br />
+                @result.Error
+            </div>
+
+
+
+        }
+        else if (result is not null)
+        {
+            <RadzenDataGrid Data="@_rows" TItem="PajakMasukanRow"
+                            AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false"
+                            AllowSorting="true" AllowPaging="true" PageSize="10"
+                            PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true"
+                            FilterMode="Radzen.FilterMode.Simple" FilterCaseSensitivity="Radzen.FilterCaseSensitivity.CaseInsensitive"
+                            LogicalFilterOperator="Radzen.LogicalFilterOperator.Or"
+                            SelectionMode="Radzen.DataGridSelectionMode.Single" @bind-Value="_selected"
+                            AllowColumnPicking="true"
+                            Density="Radzen.Density.Compact" GridLines="Radzen.DataGridGridLines.Both"
+                            Style="height: 60vh; --rz-grid-header-background-color: #123a5c; --rz-grid-header-color: #fff;">
+                <Columns>
+                    <RadzenDataGridColumn TItem="PajakMasukanRow" Property="DocEntry" Title="DocEntry"
+                                          Width="110px" TextAlign="Radzen.TextAlign.Right" />
+                    <RadzenDataGridColumn TItem="PajakMasukanRow" Property="CardCode" Title="CardCode" Width="120px" />
+                    <RadzenDataGridColumn TItem="PajakMasukanRow" Property="CardName" Title="CardName" Width="220px" />
+                    <RadzenDataGridColumn TItem="PajakMasukanRow" Property="NumAtCard" Title="NumAtCard" Width="160px" />
+                    <RadzenDataGridColumn TItem="PajakMasukanRow" Property="DocTotalFC" Title="DocTotalFC"
+                                          Width="150px" TextAlign="Radzen.TextAlign.Right" FormatString="{0:#,##0.00}" />
+                    <RadzenDataGridColumn TItem="PajakMasukanRow" Property="Address" Title="Address" Width="360px" />
+                </Columns>
+            </RadzenDataGrid>
+        }
+        else
+        {
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-table" style="font-size:1.6rem"></i>
+                <div class="mt-2">Klik Load Data untuk menampilkan data.</div>
+            </div>
+        }
+    </div>
+
+    @* ---------- Bar Aksi ---------- *@
+    <div class="ef-actionbar">
+        <div class="d-flex gap-2">
+            <button type="button" class="btn ef-btn-primary"><i class="bi bi-plus-lg me-1"></i> Add</button>
+            <button type="button" class="btn ef-btn-secondary">Cancel</button>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn ef-btn-ghost"><i class="bi bi-filetype-csv me-1"></i> Export CSV</button>
+            <button type="button" class="btn ef-btn-ghost"><i class="bi bi-filetype-xml me-1"></i> Export XML</button>
+        </div>
+    </div>
+
+</div>
+
+@code {
+    private string searchBy = "Vendor";
+    private bool dtInvoice = true;
+    private bool dtDownPayment = true;
+    private bool dtRefCreditMemo = true;
+
+    private bool loading;
+    private QueryResult? result;
+    private List<PajakMasukanRow> _rows = new();
+    private IList<PajakMasukanRow>? _selected;
+
+    // === Query dari Query Manager (ganti sesuai kebutuhan) ===
+    // Ditulis polos; SapQueryService yang menyesuaikan dialek per jenis DB.
+    private const string Sql = "SELECT DocEntry,CardName,CardCode,DocTotalFC, NumAtCard,Address FROM OINV";
+
+    private async Task LoadData()
+    {
+        loading = true;
+        result = null;
+        _rows = new();
+        _selected = null;
+        await Task.Yield();
+        result = await QuerySvc.RunQueryAsync(Sql);
+        if (result?.Error is null && result is not null)
+            _rows = MapRows(result);
+        loading = false;
+    }
+
+    // Petakan hasil query dinamis ke model bertipe (berdasar nama kolom,
+    // case-insensitive) agar RadzenDataGrid bisa sorting/filtering native.
+    private static List<PajakMasukanRow> MapRows(QueryResult r)
+    {
+        var idx = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < r.Columns.Count; i++) idx[r.Columns[i]] = i;
+
+        object? Get(object?[] row, string col) =>
+            idx.TryGetValue(col, out var i) ? row[i] : null;
+
+        var list = new List<PajakMasukanRow>(r.Rows.Count);
+        foreach (var row in r.Rows)
+        {
+            list.Add(new PajakMasukanRow
+            {
+                DocEntry   = Get(row, "DocEntry") is { } de ? Convert.ToInt32(de) : 0,
+                CardCode   = Get(row, "CardCode")?.ToString(),
+                CardName   = Get(row, "CardName")?.ToString(),
+                NumAtCard  = Get(row, "NumAtCard")?.ToString(),
+                DocTotalFC = Get(row, "DocTotalFC") is { } dt ? Convert.ToDecimal(dt) : 0m,
+                Address    = Get(row, "Address")?.ToString(),
+            });
+        }
+        return list;
+    }
+}

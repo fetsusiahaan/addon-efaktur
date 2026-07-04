@@ -1,0 +1,30 @@
+@page "/efaktur/pajak-keluaran"
+@using BlazorApp1.Models
+
+<PageTitle>Pajak Keluaran</PageTitle>
+
+<div class="mb-3">
+    <h1 class="h4 mb-0">Pajak Keluaran</h1>
+    <small class="text-muted">E-Faktur</small>
+</div>
+
+<TaxInvoiceGrid Title="Pajak Keluaran" Source="_data" />
+
+@code {
+    // Data contoh (Pajak Keluaran / penjualan). Nanti diganti dari SAP B1/SQL.
+    private readonly List<TaxDoc> _data = new()
+    {
+        new() { DocEntry = 3214, Docnum = "INV/24/07/012", TipePajak = "1", Date = new(2024,7,15),
+                CardCode = "C-8821", Cardname = "PT. ABC Indonesia Tbk", Npwp = "01.234.567.8-001.000",
+                NpwpName = "PT. ABC Indonesia Tbk", NpwpAddress = "Jl. Sudirman No. 45, Jakarta",
+                DocTotal = 12_500_000m, Discount = 0m },
+        new() { DocEntry = 3451, Docnum = "INV/24/07/013", TipePajak = "1", Date = new(2024,7,16),
+                CardCode = "C-9902", Cardname = "PT. XYZ Indonesia Tbk", Npwp = "02.111.222.3-004.000",
+                NpwpName = "PT. XYZ Indonesia Tbk", NpwpAddress = "Gedung Cyber 2, Jakarta",
+                DocTotal = 45_000_000m, Discount = 500_000m },
+        new() { DocEntry = 3487, Docnum = "INV/24/07/014", TipePajak = "1", Date = new(2024,7,18),
+                CardCode = "C-1050", Cardname = "Toko Sinar Jaya", Nik = "3271010101900001",
+                Npwp = "-", NpwpName = "Toko Sinar Jaya", NpwpAddress = "Jl. Melati No. 5, Surabaya",
+                DocTotal = 2_750_000m, Discount = 0m, Canceled = true },
+    };
+}

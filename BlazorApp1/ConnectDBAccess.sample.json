@@ -1,0 +1,18 @@
+{
+  "DatabaseConnections": [
+    {
+      "Id": "sample01",
+      "Nama": "SAP B1 Production (contoh)",
+      "JenisDb": "SQL Server",
+      "ConnString": "Server=HOST;Database=SBO_DB;User Id=sa;Password=YOUR_PASSWORD;TrustServerCertificate=True;",
+      "IsActive": false
+    },
+    {
+      "Id": "sample02",
+      "Nama": "SAP HANA (contoh)",
+      "JenisDb": "SAP HANA Database",
+      "ConnString": "Server=host:30015;UID=USER;PWD=YOUR_PASSWORD;databaseName=TENANT;encrypt=True;",
+      "IsActive": false
+    }
+  ]
+}

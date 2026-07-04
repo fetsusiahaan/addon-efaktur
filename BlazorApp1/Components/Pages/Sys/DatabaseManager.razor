@@ -1,0 +1,451 @@
+@page "/sys/database-manager"
+@rendermode InteractiveServer
+@using BlazorApp1.Models
+@using BlazorApp1.Services
+@inject DbManagerService DbMgr
+@inject IJSRuntime JS
+
+<PageTitle>Database Manager</PageTitle>
+
+<div class="ef-page">
+
+    <div class="mb-3 d-flex justify-content-between align-items-end">
+        <div>
+            <h1 class="h4 mb-0">Database Manager</h1>
+            <small class="text-muted">System › Administration</small>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn ef-btn-ghost btn-sm" @onclick="ExportJson">
+                <i class="bi bi-box-arrow-up me-1"></i>Export
+            </button>
+            <label class="btn ef-btn-ghost btn-sm mb-0" style="cursor:pointer">
+                <i class="bi bi-box-arrow-in-down me-1"></i>Import
+                <InputFile OnChange="ImportJson" accept=".json" style="display:none" />
+            </label>
+            <button class="btn ef-btn-primary btn-sm" @onclick="NewEntry">
+                <i class="bi bi-plus-lg me-1"></i>Tambah Koneksi
+            </button>
+        </div>
+    </div>
+
+    @* ── Notifikasi import ── *@
+    @if (_importMsg is not null)
+    {
+        <div class="alert @(_importOk ? "alert-success" : "alert-danger") alert-dismissible py-2 mb-3">
+            <i class="bi @(_importOk ? "bi-check-circle-fill" : "bi-x-circle-fill") me-2"></i>
+            @_importMsg
+            <button type="button" class="btn-close" @onclick="() => _importMsg = null"></button>
+        </div>
+    }
+
+    <div class="dbm-layout">
+
+        @* ══════════════════════════════════════════
+           PANEL KIRI — daftar koneksi
+           ══════════════════════════════════════════ *@
+        <div class="dbm-list-panel ef-card">
+            <div class="dbm-list-header">
+                <span class="dbm-section-label">Koneksi Tersimpan</span>
+                <span class="dbm-count">@_list.Count</span>
+            </div>
+
+            @if (_list.Count == 0)
+            {
+                <div class="dbm-empty">
+                    <i class="bi bi-plug fs-2 mb-2"></i>
+                    <div>Belum ada koneksi.</div>
+                    <div class="dbm-empty-sub">Klik <strong>Tambah Koneksi</strong> untuk memulai.</div>
+                </div>
+            }
+            else
+            {
+                <ul class="dbm-items">
+                    @foreach (var c in _list)
+                    {
+                        <li class="dbm-item @(c.Id == _selected?.Id ? "dbm-item--active" : "")"
+                            @onclick="() => SelectEntry(c)">
+                            <div class="dbm-item-icon @(c.Id == _selected?.Id ? "dbm-item-icon--active" : "")">
+                                <i class="bi @c.IconClass"></i>
+                            </div>
+                            <div class="dbm-item-body">
+                                <div class="dbm-item-name">@c.Nama</div>
+                                <div class="dbm-item-meta">@c.JenisDb</div>
+                            </div>
+                            <div class="d-flex flex-column align-items-end gap-1">
+                                @if (c.IsActive)
+                                {
+                                    <span class="dbm-badge-active">● Aktif</span>
+                                }
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+
+        @* ══════════════════════════════════════════
+           PANEL KANAN — form detail
+           ══════════════════════════════════════════ *@
+        <div class="dbm-form-panel ef-card">
+
+            @if (_form is null)
+            {
+                <div class="dbm-empty dbm-form-empty">
+                    <i class="bi bi-database-gear fs-1 mb-2" style="color:#c8d4e0"></i>
+                    <div>Pilih koneksi di kiri untuk mengedit,</div>
+                    <div>atau klik <strong>Tambah Koneksi</strong>.</div>
+                </div>
+            }
+            else
+            {
+                @* ── Header ── *@
+                <div class="dbm-form-header">
+                    <span class="dbm-form-eyebrow">
+                        @(_isNew ? "TAMBAH KONEKSI DATABASE" : "EDIT KONEKSI DATABASE")
+                    </span>
+                </div>
+
+                @* ── Body ── *@
+                <div class="dbm-form-body">
+
+                    @* Baris 1: Nama + Jenis *@
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <div class="dbm-field @(_eNama ? "dbm-field--err" : "")">
+                                <fieldset>
+                                    <legend>Nama Koneksi</legend>
+                                    <input class="form-control dbm-ctrl"
+                                           value="@_form.Nama"
+                                           @oninput='e => { _form.Nama = e.Value?.ToString() ?? ""; _eNama = false; }'
+                                           placeholder="Contoh: SAP B1 Production" />
+                                </fieldset>
+                                @if (_eNama)
+                                {
+                                    <div class="dbm-err">Nama wajib diisi.</div>
+                                }
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="dbm-field @(_eJenis ? "dbm-field--err" : "")">
+                                <fieldset>
+                                    <legend>Jenis Database</legend>
+                                    <select class="form-select dbm-ctrl"
+                                            value="@_form.JenisDb"
+                                            @onchange="OnJenisChange">
+                                        <option value="SQL Server">SQL Server</option>
+                                        <option value="SAP HANA Database">SAP HANA Database</option>
+                                    </select>
+                                </fieldset>
+                                @if (_eJenis)
+                                {
+                                    <div class="dbm-err">Pilih jenis database.</div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    @* Baris 2: Provider (read-only, otomatis) *@
+                    <div class="row g-3 mb-4">
+                        <div class="col-12">
+                            <div class="dbm-field dbm-field--readonly">
+                                <fieldset>
+                                    <legend>providerName (otomatis)</legend>
+                                    <input class="form-control dbm-ctrl" value="@_form.ProviderName" readonly />
+                                </fieldset>
+                                <div class="dbm-hint">Terisi otomatis sesuai Jenis Database</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @* Baris 3: Connection String *@
+                    <div class="row g-3 mb-1">
+                        <div class="col-12">
+                            <div class="dbm-field @(_eCs ? "dbm-field--err" : "")">
+                                <fieldset>
+                                    <legend>connectionString</legend>
+                                    <textarea class="form-control dbm-ctrl dbm-textarea"
+                                              rows="3"
+                                              placeholder="@_form.FormatHint"
+                                              value="@_form.ConnString"
+                                              @oninput='e => { _form.ConnString = e.Value?.ToString() ?? ""; _eCs = false; ResetTest(); }'></textarea>
+                                </fieldset>
+                                @if (_eCs)
+                                {
+                                    <div class="dbm-err">Connection string wajib diisi.</div>
+                                }
+                            </div>
+                            <div class="dbm-cs-hint">
+                                <i class="bi bi-info-circle me-1"></i>Format: @_form.FormatHint
+                            </div>
+                        </div>
+                    </div>
+
+                    @* Status test *@
+                    @if (_testMsg is not null)
+                    {
+                        <div class="alert @(_testOk ? "alert-success" : "alert-danger") dbm-test-alert mt-3 mb-0 py-2">
+                            <i class="bi @(_testOk ? "bi-check-circle-fill" : "bi-x-circle-fill") me-2"></i>
+                            @if (_testOk)
+                            {
+                                <span>Koneksi berhasil!</span>
+                            }
+                            else
+                            {
+
+                                <span><strong>Gagal:</strong> @_testMsg</span>
+                            }
+                        </div>
+                    }
+
+                </div>
+
+                @* ── Footer ── *@
+                <div class="dbm-form-footer">
+
+                    @* Kiri: Test koneksi *@
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn dbm-btn-test btn-sm" @onclick="TestKoneksi" disabled="@_testing">
+                            @if (_testing)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-plug me-1"></i>
+                            }
+                            TEST KONEKSI
+                        </button>
+                        <span class="dbm-test-status @TestStatusCss">
+                            <i class="bi @TestStatusIcon me-1"></i>@TestStatusLabel
+                        </span>
+                    </div>
+
+                    @* Kanan: aksi *@
+                    <div class="d-flex gap-2">
+                        @if (!_isNew)
+                        {
+                            <button class="btn ef-btn-ghost btn-sm" @onclick="DeleteEntry"
+                                    title="Hapus koneksi ini">
+                                <i class="bi bi-trash3 me-1"></i>Hapus
+                            </button>
+                            @if (!_form.IsActive)
+                            {
+                                <button class="btn ef-btn-secondary btn-sm" @onclick="SetAktif">
+                                    <i class="bi bi-check2-circle me-1"></i>Set Aktif
+                                </button>
+                            }
+                            else
+                            {
+                                <span class="btn btn-sm dbm-badge-aktif-btn" disabled>
+                                    <i class="bi bi-check2-circle me-1"></i>Koneksi Aktif
+                                </span>
+                            }
+                        }
+                        <button class="btn ef-btn-ghost btn-sm" @onclick="Cancel">Batal</button>
+                        <button class="btn ef-btn-primary btn-sm" @onclick="SaveEntry" disabled="@_saving">
+                            @if (_saving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            else
+                            {
+
+                                <i class="bi bi-floppy me-1"></i>
+                            }
+                            Simpan
+                        </button>
+                    </div>
+
+                </div>
+            }
+        </div>
+
+    </div>
+</div>
+
+@code {
+    // ── State ─────────────────────────────────────────────────────────────────
+    private List<DbConnectionEntry> _list = new();
+    private DbConnectionEntry? _form;
+    private DbConnectionEntry? _selected;
+    private bool _isNew;
+
+    // Validasi
+    private bool _eNama, _eJenis, _eCs;
+
+    // Test
+    private bool _testing;
+    private bool _testOk;
+    private bool _tested;
+    private string? _testMsg;
+
+    // Simpan
+    private bool _saving;
+
+    // Import feedback
+    private bool _importOk;
+    private string? _importMsg;
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    protected override void OnInitialized() => Reload();
+
+    private void Reload() => _list = DbMgr.GetAll();
+
+    // ── List actions ──────────────────────────────────────────────────────────
+    private void SelectEntry(DbConnectionEntry c)
+    {
+        // Clone supaya edit tidak langsung ubah list
+        _form = new DbConnectionEntry
+        {
+            Id = c.Id,
+            Nama = c.Nama,
+            JenisDb = c.JenisDb,
+            ConnString = c.ConnString,
+            IsActive = c.IsActive,
+        };
+        _selected = c;
+        _isNew = false;
+        ResetAll();
+    }
+
+    private void NewEntry()
+    {
+        _form = new DbConnectionEntry();
+        _selected = null;
+        _isNew = true;
+        ResetAll();
+    }
+
+    private void Cancel()
+    {
+        _form = null;
+        _selected = null;
+        ResetAll();
+    }
+
+    // ── Form actions ──────────────────────────────────────────────────────────
+    private void OnJenisChange(ChangeEventArgs e)
+    {
+        if (_form is null) return;
+        _form.JenisDb = e.Value?.ToString() ?? "SQL Server";
+        ResetTest();
+    }
+
+    private void SaveEntry()
+    {
+        if (_form is null || !Validate()) return;
+        _saving = true;
+        DbMgr.Save(_form);
+        Reload();
+        _saving = false;
+        _selected = _list.FirstOrDefault(x => x.Id == _form.Id);
+        _isNew = false;
+        ResetTest();
+    }
+
+    private void DeleteEntry()
+    {
+        if (_form is null) return;
+        DbMgr.Delete(_form.Id);
+        Reload();
+        Cancel();
+    }
+
+    private void SetAktif()
+    {
+        if (_form is null) return;
+        DbMgr.SetActive(_form.Id);
+        _form.IsActive = true;
+        Reload();
+        // Sync selected
+        _selected = _list.FirstOrDefault(x => x.Id == _form.Id);
+    }
+
+    private async Task TestKoneksi()
+    {
+        if (_form is null || !Validate()) return;
+        _testing = true;
+        _testMsg = null;
+        await Task.Yield();
+        var (ok, err) = await DbMgr.TestAsync(_form);
+        _testOk = ok;
+        _tested = true;
+        _testMsg = ok ? "OK" : err;
+        _testing = false;
+    }
+
+    // ── Export / Import ───────────────────────────────────────────────────────
+    private async Task ExportJson()
+    {
+        var json = DbMgr.Export();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+        var b64 = Convert.ToBase64String(bytes);
+        var filename = $"db-connections-{DateTime.Now:yyyyMMddHHmm}.json";
+        await JS.InvokeVoidAsync("eval",
+            $"const a=document.createElement('a');a.href='data:application/json;base64,{b64}';" +
+            $"a.download='{filename}';document.body.appendChild(a);a.click();a.remove();");
+    }
+
+    private async Task ImportJson(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            await using var stream = e.File.OpenReadStream(maxAllowedSize: 512 * 1024);
+            using var reader = new StreamReader(stream);
+            var json = await reader.ReadToEndAsync();
+            var (added, skipped) = DbMgr.Import(json);
+            Reload();
+            _importOk = true;
+            _importMsg = $"Import selesai: {added} ditambahkan, {skipped} dilewati (Id duplikat).";
+        }
+        catch (Exception ex)
+        {
+            _importOk = false;
+            _importMsg = $"Gagal import: {ex.Message}";
+        }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    private bool Validate()
+    {
+        if (_form is null) return false;
+        _eNama = string.IsNullOrWhiteSpace(_form.Nama);
+        _eJenis = string.IsNullOrWhiteSpace(_form.JenisDb);
+        _eCs = string.IsNullOrWhiteSpace(_form.ConnString);
+        return !_eNama && !_eJenis && !_eCs;
+    }
+
+    private void ResetTest() { _testOk = false; _tested = false; _testMsg = null; }
+    private void ResetAll() { ResetTest(); _eNama = _eJenis = _eCs = false; }
+
+    // ── Test status display ───────────────────────────────────────────────────
+    private string TestStatusCss
+    {
+        get
+        {
+            if (!_tested) return "text-muted";
+            if (_testOk) return "text-success";
+            return "text-danger";
+        }
+    }
+
+    private string TestStatusIcon
+    {
+        get
+        {
+            if (!_tested) return "bi-circle";
+            if (_testOk) return "bi-check-circle-fill";
+            return "bi-x-circle-fill";
+        }
+    }
+
+    private string TestStatusLabel
+    {
+        get
+        {
+            if (!_tested) return "Belum diuji";
+            if (_testOk) return "Berhasil diuji";
+            return "Gagal diuji";
+        }
+    }
+}

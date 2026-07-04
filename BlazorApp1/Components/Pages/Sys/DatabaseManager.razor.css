@@ -1,0 +1,370 @@
+/* ── CSS variables (sama pola ef-page) ──────────────────────────────────── */
+.ef-page {
+    --ef-navy: #123a5c;
+    --ef-navy-hover: #0e2e49;
+    --ef-blue: #5b9bd5;
+    --ef-blue-hover: #4a89c4;
+    --ef-border: #e3e6ea;
+}
+
+    .ef-page .ef-card {
+        background: #fff;
+        border: 1px solid var(--ef-border);
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(16,24,40,.05);
+    }
+
+    /* ── Layout dua kolom ────────────────────────────────────────────────────── */
+    .ef-page .dbm-layout {
+        display: grid;
+        grid-template-columns: 270px 1fr;
+        gap: 1rem;
+        align-items: start;
+    }
+
+@media (max-width: 768px) {
+    .ef-page .dbm-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ═══════════════════════════════════════
+   PANEL KIRI — list
+═══════════════════════════════════════ */
+.ef-page .dbm-list-panel {
+    overflow: hidden;
+}
+
+.ef-page .dbm-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .7rem 1rem;
+    border-bottom: 1px solid var(--ef-border);
+    background: #f8f9fb;
+    border-radius: 10px 10px 0 0;
+}
+
+.ef-page .dbm-section-label {
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #475467;
+}
+
+.ef-page .dbm-count {
+    font-size: .72rem;
+    font-weight: 600;
+    background: #e8edf2;
+    color: #475467;
+    border-radius: 12px;
+    padding: .1rem .5rem;
+}
+
+.ef-page .dbm-items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.ef-page .dbm-item {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    padding: .7rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f2f5;
+    transition: background .12s;
+}
+
+    .ef-page .dbm-item:last-child {
+        border-bottom: none;
+    }
+
+    .ef-page .dbm-item:hover {
+        background: #f7f9fb;
+    }
+
+.ef-page .dbm-item--active {
+    background: #eef4fb;
+}
+
+.ef-page .dbm-item-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: #eef0f4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #5b7a96;
+    font-size: 1rem;
+    flex-shrink: 0;
+    transition: background .12s, color .12s;
+}
+
+.ef-page .dbm-item-icon--active {
+    background: var(--ef-navy);
+    color: #fff;
+}
+
+.ef-page .dbm-item-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.ef-page .dbm-item-name {
+    font-size: .875rem;
+    font-weight: 600;
+    color: #1d2939;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ef-page .dbm-item-meta {
+    font-size: .72rem;
+    color: #667085;
+    margin-top: .1rem;
+}
+
+.ef-page .dbm-badge-active {
+    font-size: .68rem;
+    font-weight: 700;
+    background: #d1fadf;
+    color: #027a48;
+    border-radius: 20px;
+    padding: .15rem .5rem;
+    white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════
+   PANEL KANAN — form
+═══════════════════════════════════════ */
+.ef-page .dbm-form-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 420px;
+}
+
+.ef-page .dbm-form-header {
+    padding: .65rem 1.25rem;
+    border-bottom: 1px solid var(--ef-border);
+    background: #f8f9fb;
+    border-radius: 10px 10px 0 0;
+}
+
+.ef-page .dbm-form-eyebrow {
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #475467;
+}
+
+.ef-page .dbm-form-body {
+    padding: 1.25rem 1.5rem;
+    flex: 1;
+}
+
+/* ── Fieldset sebagai bordered field (floating label via legend) ─────────── */
+.ef-page .dbm-field fieldset {
+    border: 1px solid var(--ef-border);
+    border-radius: 6px;
+    padding: .05rem .75rem .5rem;
+    margin: 0;
+    transition: border-color .15s;
+}
+
+    .ef-page .dbm-field fieldset:focus-within {
+        border-color: var(--ef-blue);
+        box-shadow: 0 0 0 3px rgba(91,155,213,.12);
+    }
+
+.ef-page .dbm-field--err fieldset {
+    border-color: #f04438;
+}
+
+    .ef-page .dbm-field--err fieldset:focus-within {
+        box-shadow: 0 0 0 3px rgba(240,68,56,.12);
+    }
+
+.ef-page .dbm-field fieldset legend {
+    font-size: .7rem;
+    font-weight: 600;
+    color: #667085;
+    padding: 0 .25rem;
+    line-height: 1;
+    float: none;
+    width: auto;
+    margin-left: -.2rem;
+}
+
+.ef-page .dbm-field--err fieldset legend {
+    color: #f04438;
+}
+
+.ef-page .dbm-field--readonly fieldset {
+    background: #f8f9fb;
+    border-style: dashed;
+}
+
+    .ef-page .dbm-field--readonly fieldset legend {
+        color: #9ba8b8;
+    }
+
+.ef-page .dbm-ctrl {
+    border: none;
+    box-shadow: none !important;
+    padding: .28rem 0;
+    font-size: .9rem;
+    background: transparent !important;
+    color: #1d2939;
+}
+
+.ef-page .dbm-field--readonly .dbm-ctrl {
+    color: #9ba8b8;
+}
+
+.ef-page .dbm-textarea {
+    resize: vertical;
+    min-height: 76px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: .82rem;
+    line-height: 1.55;
+}
+
+.ef-page .dbm-hint {
+    font-size: .72rem;
+    color: #9ba8b8;
+    margin-top: .3rem;
+}
+
+.ef-page .dbm-cs-hint {
+    font-size: .72rem;
+    color: #667085;
+    margin-top: .4rem;
+}
+
+.ef-page .dbm-err {
+    font-size: .72rem;
+    color: #f04438;
+    margin-top: .25rem;
+}
+
+/* ── Test alert ──────────────────────────────────────────────────────────── */
+.ef-page .dbm-test-alert {
+    font-size: .85rem;
+    border-radius: 6px;
+}
+
+/* ── Form footer ─────────────────────────────────────────────────────────── */
+.ef-page .dbm-form-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .7rem 1.25rem;
+    border-top: 1px solid var(--ef-border);
+    background: #f8f9fb;
+    border-radius: 0 0 10px 10px;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+.ef-page .dbm-btn-test {
+    background: #fff;
+    color: #344054;
+    border: 1px solid var(--ef-border);
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+    .ef-page .dbm-btn-test:hover:not(:disabled) {
+        background: #f4f6f8;
+    }
+
+.ef-page .dbm-test-status {
+    font-size: .78rem;
+    display: flex;
+    align-items: center;
+}
+
+.ef-page .dbm-badge-aktif-btn {
+    font-size: .8rem;
+    background: #d1fadf;
+    color: #027a48;
+    border: 1px solid #a6f4c5;
+    cursor: default;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.ef-page .dbm-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    color: #98a2b3;
+    font-size: .875rem;
+    gap: .3rem;
+}
+
+.ef-page .dbm-form-empty {
+    flex: 1;
+}
+
+.ef-page .dbm-empty-sub {
+    font-size: .8rem;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.ef-page .ef-btn-primary {
+    background: var(--ef-navy);
+    color: #fff;
+    border: 1px solid var(--ef-navy);
+    font-size: .875rem;
+}
+
+    .ef-page .ef-btn-primary:hover:not(:disabled) {
+        background: var(--ef-navy-hover);
+        color: #fff;
+    }
+
+    .ef-page .ef-btn-primary:disabled {
+        opacity: .7;
+    }
+
+.ef-page .ef-btn-secondary {
+    background: var(--ef-blue);
+    color: #fff;
+    border: 1px solid var(--ef-blue);
+    font-size: .875rem;
+}
+
+    .ef-page .ef-btn-secondary:hover {
+        background: var(--ef-blue-hover);
+        color: #fff;
+    }
+
+.ef-page .ef-btn-ghost {
+    background: #fff;
+    color: #475467;
+    border: 1px solid var(--ef-border);
+    font-size: .875rem;
+}
+
+    .ef-page .ef-btn-ghost:hover {
+        background: #f4f6f8;
+        color: #344054;
+    }
+
+.ef-page .dbm-textarea::placeholder {
+    color: #aab4bf;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: .8rem;
+    line-height: 1.6;
+}

@@ -1,0 +1,237 @@
+﻿/* ================================================
+   NavMenu.razor.css  –  ERP SAP-style Sidebar
+   ================================================ */
+
+/* ---------- Navbar Toggler (mobile) ---------- */
+.navbar-toggler {
+    appearance: none;
+    cursor: pointer;
+    width: 3.5rem;
+    height: 2.5rem;
+    color: white;
+    position: absolute;
+    top: 0.5rem;
+    right: 1rem;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.55%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") no-repeat center/1.75rem rgba(255,255,255,0.1);
+}
+
+    .navbar-toggler:checked {
+        background-color: rgba(255,255,255,0.5);
+    }
+
+/* ---------- Top-row brand ---------- */
+.top-row {
+    height: 3.5rem;
+    background-color: rgba(0,0,0,0.35);
+}
+
+.navbar-brand {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: #fff !important;
+}
+
+/* =============================================
+   LEVEL-1 ICONS (menu utama)
+   ============================================= */
+.nav-icon {
+    display: inline-block;
+    width: 1.1rem;
+    height: 1.1rem;
+    min-width: 1.1rem;
+    margin-right: 0.6rem;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.85;
+    flex-shrink: 0;
+}
+
+/* =============================================
+   LEVEL-2 ICONS (sub-menu)
+   ============================================= */
+.nav-sub-icon {
+    display: inline-block;
+    width: 1.1rem;
+    height: 1.1rem;
+    min-width: 1.1rem;
+    margin-right: 0.6rem;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.85;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+}
+
+.nav-sublink:hover .nav-sub-icon {
+    opacity: 1;
+}
+
+.nav-sublink.active .nav-sub-icon {
+    opacity: 1;
+}
+
+/* =============================================
+   SECTION LABEL
+   ============================================= */
+.nav-section-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+    padding: 1.1rem 1rem 0.3rem 1rem;
+}
+
+/* =============================================
+   NAV GROUP (menu utama collapsible)
+   ============================================= */
+.nav-group {
+    margin-bottom: 1px;
+}
+
+.nav-group-toggle {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    background: none;
+    border: none;
+    color: #d7d7d7;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 0 1rem;
+    height: 2.8rem;
+    cursor: pointer;
+    text-align: left;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+}
+
+    .nav-group-toggle:hover {
+        background-color: rgba(255,255,255,0.08);
+        color: #fff;
+    }
+
+    .nav-group-toggle.open {
+        background-color: rgba(255,255,255,0.12);
+        color: #fff;
+    }
+
+.nav-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Chevron */
+.nav-chevron {
+    font-size: 1.1rem;
+    line-height: 1;
+    color: rgba(255,255,255,0.45);
+    transition: transform 0.25s ease;
+    display: inline-block;
+    transform: rotate(0deg);
+    margin-left: 4px;
+}
+
+.nav-group-toggle.open .nav-chevron {
+    transform: rotate(90deg);
+}
+
+/* =============================================
+   DROPDOWN PANEL – smooth max-height slide
+   ============================================= */
+.nav-group-items {
+    max-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background-color: rgba(0,0,0,0.18);
+    transition: max-height 0.28s ease, padding-top 0.28s ease, padding-bottom 0.28s ease;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+    .nav-group-items.show {
+        max-height: 300px;
+        padding-top: 0.3rem;
+        padding-bottom: 0.3rem;
+    }
+
+    /* =============================================
+   SUB-LINKS
+   ============================================= */
+    .nav-group-items ::deep .nav-sublink {
+        font-size: 0.85rem !important;
+        font-weight: 500 !important;
+        color: #d7d7d7 !important;
+        padding: 0.48rem 1rem 0.48rem 1rem !important;
+        height: auto !important;
+        line-height: 1.4 !important;
+        display: flex !important;
+        align-items: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        border-radius: 0 !important;
+        transition: background 0.15s, color 0.15s;
+        text-decoration: none !important;
+    }
+
+        .nav-group-items ::deep .nav-sublink:hover {
+            background-color: rgba(255,255,255,0.08) !important;
+            color: #fff !important;
+        }
+
+        .nav-group-items ::deep .nav-sublink.active {
+            background-color: rgba(255,255,255,0.18) !important;
+            color: #fff !important;
+            font-weight: 500 !important;
+        }
+
+        /* Garis kiri biru saat active */
+        .nav-group-items ::deep .nav-sublink.active {
+            border-left: 3px solid #7eb3ff;
+            padding-left: calc(1rem - 3px) !important;
+        }
+
+/* =============================================
+   SCROLLABLE REGION
+   ============================================= */
+@media (max-width: 640px) {
+    .nav-scrollable {
+        display: none;
+    }
+
+    .navbar-toggler:checked ~ .nav-scrollable {
+        display: block;
+    }
+}
+
+@media (min-width: 641px) {
+    .navbar-toggler {
+        display: none;
+    }
+
+    .nav-scrollable {
+        display: block;
+        height: calc(100vh - 3.5rem);
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255,255,255,0.15) transparent;
+    }
+
+        .nav-scrollable::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .nav-scrollable::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.18);
+            border-radius: 2px;
+        }
+}
