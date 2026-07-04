@@ -1,0 +1,41 @@
+@using BlazorApp1.Models
+@inject Radzen.DialogService DialogService
+
+<div class="udv">
+    <div class="udv-head">
+        <span class="udv-avatar" style="background:@User.AvatarColor">@User.Initials</span>
+        <div>
+            <div class="udv-name">@User.FullName</div>
+            <div class="udv-sub">@@@User.Username</div>
+        </div>
+        <span class="um-badge um-@User.Status.ToLowerInvariant() ms-auto">@User.Status</span>
+    </div>
+
+    <dl class="udv-grid">
+        <dt>Email</dt>
+        <dd>@User.Email</dd>
+
+        <dt>Username</dt>
+        <dd>@User.Username</dd>
+
+        <dt>Role</dt>
+        <dd>@User.Role</dd>
+
+        <dt>Status</dt>
+        <dd>@User.Status</dd>
+
+        <dt>Joined Date</dt>
+        <dd>@User.JoinedDateText</dd>
+
+        <dt>Last Active</dt>
+        <dd>@User.LastActiveRelative <span class="udv-muted">(@User.LastActive.ToString("dd MMM yyyy HH:mm"))</span></dd>
+    </dl>
+
+    <div class="d-flex justify-content-end mt-3">
+        <button class="btn btn-light" @onclick="() => DialogService.Close()">Tutup</button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public AppUser User { get; set; } = new();
+}

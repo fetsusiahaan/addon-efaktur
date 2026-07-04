@@ -1,6 +1,5 @@
 @page "/sys/users"
 @rendermode InteractiveServer
-@using System.Globalization
 @using System.Text
 @using BlazorApp1.Models
 @using BlazorApp1.Services
@@ -12,9 +11,9 @@
 
 <div class="um-page">
 
-    <div class="um-head">
-        <h1>User Management</h1>
-        <p>Manage all users in one place. Control access, assign roles, and monitor activity across your platform.</p>
+    <div class="mb-3">
+        <h1 class="h4 mb-0">User Management</h1>
+        <small class="text-muted">System › Administration</small>
     </div>
 
     <div class="um-card">
@@ -67,13 +66,12 @@
                 <RadzenDataGridColumn TItem="AppUser" Property="FullName" Title="Full Name" Width="210px">
                     <Template Context="u">
                         <div class="um-user">
-                            <span class="um-avatar" style="background:@AvatarColor(u.FullName)">@u.Initials</span>
+                            <span class="um-avatar" style="background:@u.AvatarColor">@u.Initials</span>
                             <span>@u.FullName</span>
                         </div>
                     </Template>
                 </RadzenDataGridColumn>
 
-                <RadzenDataGridColumn TItem="AppUser" Property="Email" Title="Email" Width="210px" />
                 <RadzenDataGridColumn TItem="AppUser" Property="Username" Title="Username" Width="140px" />
 
                 <RadzenDataGridColumn TItem="AppUser" Property="Status" Title="Status" Width="130px">
@@ -82,16 +80,9 @@
 
                 <RadzenDataGridColumn TItem="AppUser" Property="Role" Title="Role" Width="120px" />
 
-                <RadzenDataGridColumn TItem="AppUser" Property="JoinedDate" Title="Joined Date" Width="150px">
-                    <Template Context="u">@u.JoinedDate.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</Template>
-                </RadzenDataGridColumn>
-
-                <RadzenDataGridColumn TItem="AppUser" Property="LastActive" Title="Last Active" Width="140px">
-                    <Template Context="u">@RelativeTime(u.LastActive)</Template>
-                </RadzenDataGridColumn>
-
-                <RadzenDataGridColumn TItem="AppUser" Title="Actions" Sortable="false" Width="100px" TextAlign="Radzen.TextAlign.Center">
+                <RadzenDataGridColumn TItem="AppUser" Title="Actions" Sortable="false" Width="120px" TextAlign="Radzen.TextAlign.Center">
                     <Template Context="u">
+                        <button class="um-icon" title="Detail" @onclick="() => ShowDetail(u)"><i class="bi bi-eye"></i></button>
                         <button class="um-icon" title="Edit" @onclick="() => OpenEditor(u)"><i class="bi bi-pencil"></i></button>
                         <button class="um-icon um-icon-danger" title="Hapus" @onclick="() => DeleteUser(u)"><i class="bi bi-trash3"></i></button>
                     </Template>
@@ -181,41 +172,28 @@
         }
     }
 
+    // ── Detail ──────────────────────────────────────────────────────────────
+    private async Task ShowDetail(AppUser u) =>
+        await DialogService.OpenAsync<UserDetailDialog>(
+            "Detail User",
+            new Dictionary<string, object?> { ["User"] = u },
+            new Radzen.DialogOptions { Width = "520px", CloseDialogOnOverlayClick = true });
+
     // ── Export ──────────────────────────────────────────────────────────────
     private async Task ExportCsv()
     {
+        // Jika ada baris tercentang -> export yang dicentang saja.
+        // Jika tidak ada -> export semua (mengikuti filter aktif).
+        var rows = _selected.Count > 0
+            ? _all.Where(u => _selected.Contains(u.Id))
+            : Filtered;
+
         var sb = new StringBuilder();
         sb.AppendLine("FullName,Email,Username,Status,Role,JoinedDate,LastActive");
-        foreach (var u in Filtered)
+        foreach (var u in rows)
             sb.AppendLine($"\"{u.FullName}\",\"{u.Email}\",\"{u.Username}\",{u.Status},{u.Role}," +
                           $"{u.JoinedDate:yyyy-MM-dd},{u.LastActive:yyyy-MM-dd HH:mm}");
 
         await JS.InvokeVoidAsync("downloadFile", $"users-{DateTime.Now:yyyyMMddHHmm}.csv", sb.ToString(), "text/csv");
     }
-
-    // ── Helpers ─────────────────────────────────────────────────────────────
-    private static readonly string[] AvatarColors =
-        { "#5b9bd5", "#8a6db1", "#57a773", "#d98b41", "#c15b6b", "#3f7cac", "#7b6cc4" };
-
-    private static string AvatarColor(string name)
-    {
-        int h = 0;
-        foreach (var c in name) h = h * 31 + c;
-        return AvatarColors[Math.Abs(h) % AvatarColors.Length];
-    }
-
-    private static string RelativeTime(DateTime dt)
-    {
-        if (dt == DateTime.MinValue) return "-";
-        var span = DateTime.Now - dt;
-        if (span.TotalSeconds < 60) return $"{Plural((int)span.TotalSeconds, "second")} ago";
-        if (span.TotalMinutes < 60) return $"{Plural((int)span.TotalMinutes, "minute")} ago";
-        if (span.TotalHours < 24) return $"{Plural((int)span.TotalHours, "hour")} ago";
-        if (span.TotalDays < 7) return $"{Plural((int)span.TotalDays, "day")} ago";
-        if (span.TotalDays < 30) return $"{Plural((int)(span.TotalDays / 7), "week")} ago";
-        if (span.TotalDays < 365) return $"{Plural((int)(span.TotalDays / 30), "month")} ago";
-        return $"{Plural((int)(span.TotalDays / 365), "year")} ago";
-    }
-
-    private static string Plural(int n, string unit) => $"{n} {unit}{(n == 1 ? "" : "s")}";
 }

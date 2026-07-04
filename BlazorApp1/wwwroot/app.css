@@ -87,19 +87,16 @@ h1:focus {
     font-size: 0.85rem;
 }
 
-/* Dropdown "items per page" */
+/* Dropdown "items per page" — cukup kecilkan font, tinggi biarkan natural
+   agar angkanya tidak terpotong. */
 .rz-pager .rz-dropdown {
-    min-height: 1.9rem;
-    height: 1.9rem;
     font-size: 0.78rem;
 }
 
-.rz-pager .rz-dropdown .rz-dropdown-label,
-.rz-pager .rz-dropdown .rz-dropdown-trigger {
-    padding-top: 0;
-    padding-bottom: 0;
-    line-height: 1.9rem;
+.rz-pager .rz-dropdown .rz-dropdown-label {
     font-size: 0.78rem;
+    display: flex;
+    align-items: center;
 }
 
 .rz-pager .rz-paginator-summary {
