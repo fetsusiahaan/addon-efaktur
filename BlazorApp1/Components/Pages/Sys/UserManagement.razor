@@ -1,0 +1,221 @@
+@page "/sys/users"
+@rendermode InteractiveServer
+@using System.Globalization
+@using System.Text
+@using BlazorApp1.Models
+@using BlazorApp1.Services
+@inject UserService Users
+@inject Radzen.DialogService DialogService
+@inject IJSRuntime JS
+
+<PageTitle>User Management</PageTitle>
+
+<div class="um-page">
+
+    <div class="um-head">
+        <h1>User Management</h1>
+        <p>Manage all users in one place. Control access, assign roles, and monitor activity across your platform.</p>
+    </div>
+
+    <div class="um-card">
+
+        @* ---------- Toolbar ---------- *@
+        <div class="um-toolbar">
+            <div class="um-search">
+                <i class="bi bi-search"></i>
+                <input placeholder="Search" value="@_search" @oninput="OnSearch" />
+            </div>
+
+            <select class="um-filter" @bind="_role">
+                <option value="">Role</option>
+                @foreach (var r in RoleOptions) { <option value="@r">@r</option> }
+            </select>
+
+            <select class="um-filter" @bind="_status">
+                <option value="">Status</option>
+                @foreach (var s in StatusOptions) { <option value="@s">@s</option> }
+            </select>
+
+            <select class="um-filter" @bind="_dateRange">
+                <option value="">Date</option>
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="365">Last year</option>
+            </select>
+
+            <div class="um-toolbar-right">
+                <button class="um-btn-ghost" @onclick="ExportCsv"><i class="bi bi-box-arrow-up me-1"></i>Export</button>
+                <button class="um-btn-primary" @onclick="() => OpenEditor(null)"><i class="bi bi-plus-lg me-1"></i>Add User</button>
+            </div>
+        </div>
+
+        @* ---------- Grid ---------- *@
+        <RadzenDataGrid Data="@Filtered" TItem="AppUser" AllowPaging="true" PageSize="10"
+                        PageSizeOptions="@_pageSizes" AllowSorting="true" ShowPagingSummary="true"
+                        PagingSummaryFormat="of {2} rows" PagerHorizontalAlign="Radzen.HorizontalAlign.Right"
+                        Style="height: 68vh; --rz-grid-header-background-color:#1f2d3d; --rz-grid-header-color:#fff;">
+            <Columns>
+                <RadzenDataGridColumn TItem="AppUser" Width="46px" Sortable="false" TextAlign="Radzen.TextAlign.Center">
+                    <HeaderTemplate>
+                        <input type="checkbox" checked="@AllSelected" @onchange="e => ToggleAll((bool)e.Value!)" />
+                    </HeaderTemplate>
+                    <Template Context="u">
+                        <input type="checkbox" checked="@_selected.Contains(u.Id)" @onchange="e => ToggleOne(u.Id, (bool)e.Value!)" />
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="AppUser" Property="FullName" Title="Full Name" Width="210px">
+                    <Template Context="u">
+                        <div class="um-user">
+                            <span class="um-avatar" style="background:@AvatarColor(u.FullName)">@u.Initials</span>
+                            <span>@u.FullName</span>
+                        </div>
+                    </Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="AppUser" Property="Email" Title="Email" Width="210px" />
+                <RadzenDataGridColumn TItem="AppUser" Property="Username" Title="Username" Width="140px" />
+
+                <RadzenDataGridColumn TItem="AppUser" Property="Status" Title="Status" Width="130px">
+                    <Template Context="u"><span class="um-badge um-@u.Status.ToLowerInvariant()">@u.Status</span></Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="AppUser" Property="Role" Title="Role" Width="120px" />
+
+                <RadzenDataGridColumn TItem="AppUser" Property="JoinedDate" Title="Joined Date" Width="150px">
+                    <Template Context="u">@u.JoinedDate.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture)</Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="AppUser" Property="LastActive" Title="Last Active" Width="140px">
+                    <Template Context="u">@RelativeTime(u.LastActive)</Template>
+                </RadzenDataGridColumn>
+
+                <RadzenDataGridColumn TItem="AppUser" Title="Actions" Sortable="false" Width="100px" TextAlign="Radzen.TextAlign.Center">
+                    <Template Context="u">
+                        <button class="um-icon" title="Edit" @onclick="() => OpenEditor(u)"><i class="bi bi-pencil"></i></button>
+                        <button class="um-icon um-icon-danger" title="Hapus" @onclick="() => DeleteUser(u)"><i class="bi bi-trash3"></i></button>
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+</div>
+
+@code {
+    private List<AppUser> _all = new();
+    private readonly HashSet<int> _selected = new();
+    private readonly int[] _pageSizes = { 10, 20, 50 };
+
+    private string _search = "";
+    private string _role = "";
+    private string _status = "";
+    private string _dateRange = "";
+
+    private static readonly string[] RoleOptions = { "Admin", "User", "Guest", "Moderator" };
+    private static readonly string[] StatusOptions = { "Active", "Inactive", "Banned", "Pending", "Suspended" };
+
+    protected override void OnInitialized() => _all = Users.GetAll();
+
+    private IEnumerable<AppUser> Filtered
+    {
+        get
+        {
+            IEnumerable<AppUser> q = _all;
+
+            if (!string.IsNullOrWhiteSpace(_search))
+            {
+                var s = _search.Trim();
+                q = q.Where(u =>
+                    u.FullName.Contains(s, StringComparison.OrdinalIgnoreCase) ||
+                    u.Email.Contains(s, StringComparison.OrdinalIgnoreCase) ||
+                    u.Username.Contains(s, StringComparison.OrdinalIgnoreCase));
+            }
+            if (!string.IsNullOrEmpty(_role)) q = q.Where(u => u.Role == _role);
+            if (!string.IsNullOrEmpty(_status)) q = q.Where(u => u.Status == _status);
+            if (int.TryParse(_dateRange, out var days))
+            {
+                var cut = DateTime.Now.AddDays(-days);
+                q = q.Where(u => u.JoinedDate >= cut);
+            }
+            return q.ToList();
+        }
+    }
+
+    private void OnSearch(ChangeEventArgs e) => _search = e.Value?.ToString() ?? "";
+
+    // ── Seleksi ─────────────────────────────────────────────────────────────
+    private bool AllSelected => Filtered.Any() && Filtered.All(u => _selected.Contains(u.Id));
+    private void ToggleAll(bool v)
+    {
+        if (v) foreach (var u in Filtered) _selected.Add(u.Id);
+        else _selected.Clear();
+    }
+    private void ToggleOne(int id, bool v) { if (v) _selected.Add(id); else _selected.Remove(id); }
+
+    // ── Add / Edit / Delete ─────────────────────────────────────────────────
+    private async Task OpenEditor(AppUser? u)
+    {
+        var result = await DialogService.OpenAsync<UserEditDialog>(
+            u is null ? "Tambah User" : "Edit User",
+            new Dictionary<string, object?> { ["User"] = u },
+            new Radzen.DialogOptions { Width = "560px", CloseDialogOnOverlayClick = true });
+
+        if (result is AppUser edited)
+        {
+            if (edited.Id == 0) Users.Add(edited); else Users.Update(edited);
+            _all = Users.GetAll();
+        }
+    }
+
+    private async Task DeleteUser(AppUser u)
+    {
+        var ok = await DialogService.Confirm(
+            $"Hapus user '{u.FullName}'?", "Konfirmasi Hapus",
+            new Radzen.ConfirmOptions { OkButtonText = "Hapus", CancelButtonText = "Batal" });
+
+        if (ok == true)
+        {
+            Users.Delete(u.Id);
+            _selected.Remove(u.Id);
+            _all = Users.GetAll();
+        }
+    }
+
+    // ── Export ──────────────────────────────────────────────────────────────
+    private async Task ExportCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("FullName,Email,Username,Status,Role,JoinedDate,LastActive");
+        foreach (var u in Filtered)
+            sb.AppendLine($"\"{u.FullName}\",\"{u.Email}\",\"{u.Username}\",{u.Status},{u.Role}," +
+                          $"{u.JoinedDate:yyyy-MM-dd},{u.LastActive:yyyy-MM-dd HH:mm}");
+
+        await JS.InvokeVoidAsync("downloadFile", $"users-{DateTime.Now:yyyyMMddHHmm}.csv", sb.ToString(), "text/csv");
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+    private static readonly string[] AvatarColors =
+        { "#5b9bd5", "#8a6db1", "#57a773", "#d98b41", "#c15b6b", "#3f7cac", "#7b6cc4" };
+
+    private static string AvatarColor(string name)
+    {
+        int h = 0;
+        foreach (var c in name) h = h * 31 + c;
+        return AvatarColors[Math.Abs(h) % AvatarColors.Length];
+    }
+
+    private static string RelativeTime(DateTime dt)
+    {
+        if (dt == DateTime.MinValue) return "-";
+        var span = DateTime.Now - dt;
+        if (span.TotalSeconds < 60) return $"{Plural((int)span.TotalSeconds, "second")} ago";
+        if (span.TotalMinutes < 60) return $"{Plural((int)span.TotalMinutes, "minute")} ago";
+        if (span.TotalHours < 24) return $"{Plural((int)span.TotalHours, "hour")} ago";
+        if (span.TotalDays < 7) return $"{Plural((int)span.TotalDays, "day")} ago";
+        if (span.TotalDays < 30) return $"{Plural((int)(span.TotalDays / 7), "week")} ago";
+        if (span.TotalDays < 365) return $"{Plural((int)(span.TotalDays / 30), "month")} ago";
+        return $"{Plural((int)(span.TotalDays / 365), "year")} ago";
+    }
+
+    private static string Plural(int n, string unit) => $"{n} {unit}{(n == 1 ? "" : "s")}";
+}

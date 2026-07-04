@@ -1,0 +1,25 @@
+.ued-label {
+    font-size: .8rem;
+    font-weight: 600;
+    color: #475467;
+    margin-bottom: .3rem;
+    display: block;
+}
+
+.ued .form-control,
+.ued .form-select {
+    border-color: #e3e6ea;
+    font-size: .9rem;
+}
+
+.ued-save {
+    background: #1f2d3d;
+    color: #fff;
+    border: 1px solid #1f2d3d;
+    font-size: .9rem;
+}
+
+.ued-save:hover {
+    background: #16212e;
+    color: #fff;
+}

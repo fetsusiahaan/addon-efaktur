@@ -1,0 +1,166 @@
+.um-page {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.um-head {
+    text-align: center;
+    margin: 1rem 0 1.75rem;
+}
+
+.um-head h1 {
+    font-weight: 800;
+    color: #1f2d3d;
+    font-size: 2.4rem;
+    margin-bottom: .4rem;
+}
+
+.um-head p {
+    color: #64748b;
+    font-size: 1.05rem;
+    margin: 0;
+}
+
+.um-card {
+    background: #fff;
+    border: 1px solid #e6e9ee;
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, .05);
+    overflow: hidden;
+}
+
+/* ---------- Toolbar ---------- */
+.um-toolbar {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .7rem 1rem;
+    flex-wrap: wrap;
+    background: #fafbfc;
+    border-bottom: 1px solid #eef1f4;
+}
+
+.um-search {
+    position: relative;
+    flex: 1 1 220px;
+    max-width: 340px;
+}
+
+.um-search i {
+    position: absolute;
+    left: .9rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+}
+
+.um-search input {
+    width: 100%;
+    border: 1px solid #d9dee5;
+    border-radius: 999px;
+    padding: .38rem .9rem .38rem 2.1rem;
+    font-size: .82rem;
+    outline: none;
+}
+
+.um-search i { left: .8rem; font-size: .85rem; }
+
+.um-filter {
+    border: 1px solid #d9dee5;
+    border-radius: 999px;
+    padding: .38rem 1.1rem .38rem .8rem;
+    font-size: .82rem;
+    color: #475467;
+    background-color: #fff;
+    cursor: pointer;
+}
+
+.um-toolbar-right {
+    margin-left: auto;
+    display: flex;
+    gap: .45rem;
+}
+
+.um-btn-ghost {
+    border: 1px solid #d9dee5;
+    background: #fff;
+    color: #475467;
+    border-radius: 999px;
+    padding: .38rem .9rem;
+    font-size: .82rem;
+    font-weight: 500;
+}
+
+.um-btn-ghost:hover { background: #f4f6f8; }
+
+.um-btn-primary {
+    border: 1px solid #1f2d3d;
+    background: #1f2d3d;
+    color: #fff;
+    border-radius: 999px;
+    padding: .38rem 1rem;
+    font-size: .82rem;
+    font-weight: 600;
+}
+
+.um-btn-primary:hover { background: #16212e; }
+
+/* ---------- User cell ---------- */
+.um-user {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+}
+
+.um-avatar {
+    width: 23px;
+    height: 23px;
+    border-radius: 50%;
+    color: #fff;
+    font-size: .62rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+/* ---------- Status badges ---------- */
+.um-badge {
+    display: inline-block;
+    padding: .3rem .85rem;
+    border-radius: 999px;
+    font-size: .78rem;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1;
+}
+
+.um-active    { background: #22a06b; }
+.um-inactive  { background: #9aa4b2; }
+.um-banned    { background: #e0495a; }
+.um-pending   { background: #12234b; }
+.um-suspended { background: #ef8a2b; }
+
+/* ---------- Action icons ---------- */
+.um-icon {
+    background: none;
+    border: none;
+    color: #64748b;
+    font-size: 1rem;
+    padding: .2rem .35rem;
+    cursor: pointer;
+}
+
+.um-icon:hover { color: #1f2d3d; }
+
+.um-icon-danger { color: #e0495a; }
+.um-icon-danger:hover { color: #c1394a; }
+
+/* Grid: scroll internal (vertikal & horizontal) supaya sticky header tetap
+   di dalam grid, tidak menembus MainLayout, dan tidak melebarkan halaman. */
+.um-card ::deep .rz-data-grid,
+.um-card ::deep .rz-data-grid-data {
+    max-width: 100%;
+    min-width: 0;
+}

@@ -33,6 +33,11 @@ appsettings.*.Local.json
 secrets.json
 *.pfx
 
+# ---- SQLite (data lokal) ----
+*.db
+*.db-shm
+*.db-wal
+
 # ---- OS ----
 Thumbs.db
 Desktop.ini

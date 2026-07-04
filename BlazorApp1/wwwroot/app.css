@@ -49,3 +49,59 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+/* ===== Kerapatan baris: HANYA jarak atas-bawah (global, semua RadzenDataGrid) =====
+   Lebar kolom & ukuran font TIDAK diubah agar isi tidak terpotong. */
+
+.rz-grid-table td {
+    padding-top: 0.2rem;
+    padding-bottom: 0.2rem;
+}
+
+.rz-grid-table thead th > div:not(.rz-cell-filter) {
+    padding-top: 0.2rem;
+    padding-bottom: 0.2rem;
+}
+
+.rz-grid-table td .rz-cell-data {
+    line-height: 1.2;
+}
+
+/* ===== Pager RadzenDataGrid lebih ringkas (global) ===== */
+.rz-pager {
+    font-size: 0.78rem;
+    padding: 0.3rem 0.5rem;
+    min-height: auto;
+}
+
+.rz-pager .rz-paginator-element {
+    min-width: 1.9rem;
+    width: 1.9rem;
+    height: 1.9rem;
+    min-height: 1.9rem;
+    padding: 0;
+    font-size: 0.78rem;
+}
+
+.rz-pager .rz-paginator-element .rzi {
+    font-size: 0.85rem;
+}
+
+/* Dropdown "items per page" */
+.rz-pager .rz-dropdown {
+    min-height: 1.9rem;
+    height: 1.9rem;
+    font-size: 0.78rem;
+}
+
+.rz-pager .rz-dropdown .rz-dropdown-label,
+.rz-pager .rz-dropdown .rz-dropdown-trigger {
+    padding-top: 0;
+    padding-bottom: 0;
+    line-height: 1.9rem;
+    font-size: 0.78rem;
+}
+
+.rz-pager .rz-paginator-summary {
+    font-size: 0.78rem;
+}

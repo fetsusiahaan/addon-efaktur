@@ -17,6 +17,7 @@ builder.Services.AddRazorComponents()
 builder.Services.AddRadzenComponents();
 builder.Services.AddScoped<SapQueryService>();
 builder.Services.AddScoped<DbManagerService>();
+builder.Services.AddScoped<UserService>();
 
 var app = builder.Build();
 

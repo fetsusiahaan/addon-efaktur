@@ -1,0 +1,40 @@
+@page "/404"
+@page "/{*path:nonfile}"
+@using Microsoft.AspNetCore.Http
+
+<PageTitle>404 - Tidak Ditemukan</PageTitle>
+
+<div class="nf-wrap">
+    <div class="nf-card">
+        <div class="nf-code">404</div>
+        <div class="nf-icon">
+            <i class="bi bi-compass"></i>
+        </div>
+        <h1 class="nf-title">Halaman tidak ditemukan</h1>
+        <p class="nf-text">
+            Maaf, halaman yang Anda tuju tidak ada atau tautannya salah.
+        </p>
+        <div class="nf-actions">
+            <a class="btn nf-btn-primary" href="/">
+                <i class="bi bi-house-door me-1"></i> Kembali ke Beranda
+            </a>
+            <a class="btn nf-btn-ghost" href="javascript:history.back()">
+                <i class="bi bi-arrow-left me-1"></i> Halaman sebelumnya
+            </a>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Menampung segmen URL dari catch-all route "/{*path}".
+    [Parameter] public string? Path { get; set; }
+
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    // Set status HTTP 404 saat render statis (SSR) agar responsnya benar.
+    protected override void OnInitialized()
+    {
+        if (HttpContext is not null)
+            HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
+    }
+}
