@@ -6,6 +6,16 @@
     display: block;
 }
 
+.ued-req {
+    color: #d92d20;
+}
+
+.ued .form-control[disabled],
+.ued .form-control[readonly] {
+    background: #f4f6f8;
+    color: #667085;
+}
+
 .ued .form-control,
 .ued .form-select {
     border-color: #e3e6ea;

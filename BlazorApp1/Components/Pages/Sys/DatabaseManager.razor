@@ -1,5 +1,6 @@
 @page "/sys/database-manager"
 @rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
 @using BlazorApp1.Models
 @using BlazorApp1.Services
 @inject DbManagerService DbMgr
@@ -9,12 +10,8 @@
 
 <div class="ef-page">
 
-    <div class="mb-3 d-flex justify-content-between align-items-end">
-        <div>
-            <h1 class="h4 mb-0">Database Manager</h1>
-            <small class="text-muted">System › Administration</small>
-        </div>
-        <div class="d-flex gap-2">
+    <PageHeader Title="Database Manager" Breadcrumb="System › Administration">
+        <Actions>
             <button class="btn ef-btn-ghost btn-sm" @onclick="ExportJson">
                 <i class="bi bi-box-arrow-up me-1"></i>Export
             </button>
@@ -25,8 +22,8 @@
             <button class="btn ef-btn-primary btn-sm" @onclick="NewEntry">
                 <i class="bi bi-plus-lg me-1"></i>Tambah Koneksi
             </button>
-        </div>
-    </div>
+        </Actions>
+    </PageHeader>
 
     @* ── Notifikasi import ── *@
     @if (_importMsg is not null)

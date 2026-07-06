@@ -8,6 +8,24 @@
     <main>
         <div class="top-row px-4">
             <DbStatus />
+
+            <AuthorizeView>
+                <Authorized>
+                    <div class="user-box">
+                        <div class="user-meta">
+                            <span class="user-name">@DisplayName(context)</span>
+                            <span class="user-role user-role-@RoleOf(context).ToLowerInvariant()">@RoleOf(context)</span>
+                        </div>
+                        <span class="user-avatar">@InitialsOf(context)</span>
+                        <form action="Account/Logout" method="post" class="logout-form">
+                            <AntiforgeryToken />
+                            <button type="submit" class="logout-btn" title="Keluar">
+                                <i class="bi bi-box-arrow-right"></i>
+                            </button>
+                        </form>
+                    </div>
+                </Authorized>
+            </AuthorizeView>
         </div>
 
         <article class="content px-4">
@@ -25,3 +43,22 @@
 @* Host dialog/notifikasi/tooltip Radzen — di root layout (di luar top-row)
    agar tidak terkurung stacking context & selalu di atas grid. *@
 <RadzenComponents @rendermode="InteractiveServer" />
+
+@code {
+    private static string DisplayName(AuthenticationState s) =>
+        s.User.FindFirst("full_name")?.Value
+        ?? s.User.Identity?.Name
+        ?? "Pengguna";
+
+    private static string RoleOf(AuthenticationState s) =>
+        s.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "User";
+
+    private static string InitialsOf(AuthenticationState s)
+    {
+        var name = DisplayName(s);
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "?";
+        if (parts.Length == 1) return parts[0][..1].ToUpperInvariant();
+        return (parts[0][..1] + parts[^1][..1]).ToUpperInvariant();
+    }
+}

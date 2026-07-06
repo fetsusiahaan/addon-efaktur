@@ -1,0 +1,12 @@
+.page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.page-header-actions {
+    display: flex;
+    gap: .5rem;
+    flex-shrink: 0;
+}

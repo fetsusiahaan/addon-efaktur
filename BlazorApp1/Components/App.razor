@@ -19,6 +19,15 @@
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
     <script>
+        window.togglePwd = (btn) => {
+            const input = btn.parentElement.querySelector('input');
+            const icon = btn.querySelector('i');
+            if (!input) return;
+            const show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            icon.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+        };
+
         window.downloadFile = (filename, content, mime) => {
             const blob = new Blob([content], { type: mime });
             const url = URL.createObjectURL(blob);

@@ -2,20 +2,26 @@
 @using BlazorApp1.Services
 @inject Radzen.DialogService DialogService
 @inject DbManagerService DbMgr
+@inject UserService Users
 
 <div class="ued">
     <div class="row g-3">
         <div class="col-12">
-            <label class="ued-label">Full Name</label>
+            <label class="ued-label">Full Name <span class="ued-req">*</span></label>
             <input class="form-control" @bind="_u.FullName" placeholder="Nama lengkap" />
         </div>
         <div class="col-md-6">
-            <label class="ued-label">Email</label>
+            <label class="ued-label">Email <span class="ued-req">*</span></label>
             <input class="form-control" type="email" @bind="_u.Email" placeholder="email@contoh.com" />
         </div>
         <div class="col-md-6">
-            <label class="ued-label">Username</label>
-            <input class="form-control" @bind="_u.Username" placeholder="username" />
+            <label class="ued-label">Username <span class="ued-req">*</span></label>
+            <input class="form-control" @bind="_u.Username" placeholder="username"
+                   disabled="@_isEdit" readonly="@_isEdit" />
+            @if (_isEdit)
+            {
+                <small class="text-muted">Username tidak dapat diubah.</small>
+            }
         </div>
         <div class="col-md-6">
             <label class="ued-label">Status</label>
@@ -69,6 +75,7 @@
 
     private AppUser _u = new();
     private string? _error;
+    private bool _isEdit;
     private List<DbConnectionEntry> _connections = new();
 
     private static readonly string[] Statuses = { "Active", "Inactive", "Banned", "Pending", "Suspended" };
@@ -77,21 +84,38 @@
     protected override void OnInitialized()
     {
         _connections = DbMgr.GetAll();
+        _isEdit = User is not null && User.Id != 0;
 
         _u = User is null
-            ? new AppUser { JoinedDate = DateTime.Today }
+            ? new AppUser { JoinedDate = DateTime.Today }   // Password default "Password#01" dari model
             : new AppUser
             {
                 Id = User.Id, FullName = User.FullName, Email = User.Email, Username = User.Username,
                 Status = User.Status, Role = User.Role, JoinedDate = User.JoinedDate,
-                LastActive = User.LastActive, KoneksiDb = User.KoneksiDb
+                LastActive = User.LastActive, KoneksiDb = User.KoneksiDb, Password = User.Password
             };
     }
 
     private void Save()
     {
-        if (string.IsNullOrWhiteSpace(_u.FullName)) { _error = "Nama wajib diisi."; return; }
+        _u.FullName = _u.FullName?.Trim() ?? "";
+        _u.Email = _u.Email?.Trim() ?? "";
+        _u.Username = _u.Username?.Trim() ?? "";
+
+        if (string.IsNullOrWhiteSpace(_u.FullName)) { _error = "Full Name wajib diisi."; return; }
         if (string.IsNullOrWhiteSpace(_u.Username)) { _error = "Username wajib diisi."; return; }
+        if (string.IsNullOrWhiteSpace(_u.Email)) { _error = "Email wajib diisi."; return; }
+        if (!new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(_u.Email))
+        {
+            _error = "Format email tidak valid."; return;
+        }
+
+        // Username harus unik (hanya relevan saat Add — saat edit username terkunci).
+        if (!_isEdit && Users.UsernameExists(_u.Username))
+        {
+            _error = "Username sudah digunakan"; return;
+        }
+
         if (_u.Id == 0) _u.LastActive = DateTime.Now;
         DialogService.Close(_u);
     }

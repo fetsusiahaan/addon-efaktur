@@ -11,6 +11,11 @@ main {
     min-width: 0;
 }
 
+/* Jarak bawah di setiap halaman agar konten tidak menempel ke tepi bawah. */
+article.content {
+    padding-bottom: 2.5rem;
+}
+
 .sidebar {
     background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
 }
@@ -19,9 +24,84 @@ main {
     background-color: #f7f7f7;
     border-bottom: 1px solid #d6d5d5;
     justify-content: flex-end;
+    gap: 1rem;
     height: 3.5rem;
     display: flex;
     align-items: center;
+}
+
+/* ── Kotak user login (kanan atas) ── */
+.user-box {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+}
+
+.user-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.15;
+}
+
+.user-name {
+    font-size: .85rem;
+    font-weight: 600;
+    color: #1f2d3d;
+}
+
+.user-role {
+    font-size: .68rem;
+    font-weight: 600;
+    padding: 0 .4rem;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}
+
+.user-role-admin {
+    background: #e7f0fb;
+    color: #1f5fa8;
+}
+
+.user-role-user {
+    background: #e9f7ef;
+    color: #2f7d4f;
+}
+
+.user-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #123a5c, #5b9bd5);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .8rem;
+    font-weight: 700;
+}
+
+.logout-form {
+    margin: 0;
+}
+
+.logout-btn {
+    border: 1px solid #e3e6ea;
+    background: #fff;
+    color: #b42318;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.logout-btn:hover {
+    background: #fef3f2;
+    border-color: #fecdca;
 }
 
     .top-row ::deep a, .top-row ::deep .btn-link {

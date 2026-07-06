@@ -17,6 +17,9 @@ public class AppUser
     /// <summary>Nama koneksi DB terpilih (dari Database Manager).</summary>
     public string? KoneksiDb { get; set; }
 
+    /// <summary>Password login. Default untuk semua user baru = "Password#01".</summary>
+    public string Password { get; set; } = "Password#01";
+
     /// <summary>Inisial untuk avatar (mis. "John Smith" -> "JS").</summary>
     public string Initials
     {

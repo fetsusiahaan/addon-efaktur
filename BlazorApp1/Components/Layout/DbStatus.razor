@@ -3,6 +3,7 @@
 @using Radzen
 @implements IDisposable
 @inject DbManagerService DbMgr
+@inject SapQueryService Query
 @inject NotificationService Notifications
 
 <div class="db-status db-status--@_state.ToString().ToLowerInvariant()" title="@_tooltip">
@@ -93,12 +94,15 @@
 
     private async Task CheckAsync()
     {
-        var active = DbMgr.GetActive();
+        // Koneksi ditentukan sesuai role: User -> field KoneksiDb; Admin -> koneksi aktif.
+        var (active, connErr) = await Query.ResolveConnectionAsync();
         if (active is null)
         {
             _state = St.NoActive;
-            _label = "Tidak ada koneksi aktif";
-            _tooltip = "Aktifkan salah satu koneksi di Database Manager";
+            _label = string.Equals(connErr, "No choose DB", StringComparison.OrdinalIgnoreCase)
+                ? "No choose DB"
+                : "Tidak ada koneksi aktif";
+            _tooltip = connErr ?? _label;
             return;
         }
 

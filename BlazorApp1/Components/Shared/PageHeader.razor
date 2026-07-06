@@ -1,0 +1,21 @@
+@* Header halaman standar (judul + breadcrumb), konsisten di setiap page.
+   Slot opsional <Actions> untuk tombol di sisi kanan. *@
+<div class="page-header mb-3">
+    <div class="page-header-text">
+        <h1 class="h4 mb-0">@Title</h1>
+        @if (!string.IsNullOrWhiteSpace(Breadcrumb))
+        {
+            <small class="text-muted">@Breadcrumb</small>
+        }
+    </div>
+    @if (Actions is not null)
+    {
+        <div class="page-header-actions">@Actions</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Breadcrumb { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+}

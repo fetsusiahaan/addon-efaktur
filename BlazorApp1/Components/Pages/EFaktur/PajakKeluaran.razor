@@ -1,0 +1,267 @@
+@page "/efaktur/pajak-keluaran"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin,User")]
+@using BlazorApp1.Models
+@using BlazorApp1.Services
+@using Radzen.Blazor
+@inject SapQueryService QuerySvc
+@inject NavigationManager Nav
+
+<PageTitle>Daftar Pajak Keluaran</PageTitle>
+
+<div class="dpk-page">
+
+    @* ---------- Header halaman ---------- *@
+    <PageHeader Title="Daftar Pajak Keluaran" Breadcrumb="E-Faktur › Pajak Keluaran">
+        <Actions>
+            <button type="button" class="dpk-new" @onclick='() => Nav.NavigateTo("/efaktur/create-pajak-keluaran")'>
+                <i class="bi bi-plus-lg me-1"></i> New
+            </button>
+        </Actions>
+    </PageHeader>
+
+    @* ---------- Kartu daftar ---------- *@
+    <div class="dpk-card">
+        <div class="dpk-card-head">
+            <span class="dpk-card-title">Daftar E-Faktur Keluaran</span>
+            <div class="dpk-card-tools">
+                <button type="button" class="dpk-filter-btn @(_showFilter ? "active" : "")"
+                        @onclick="ToggleFilter">
+                    <i class="bi bi-funnel me-1"></i> Filter
+                </button>
+                <button type="button" class="dpk-filter-btn" @onclick="LoadData" disabled="@loading" title="Muat ulang">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+            </div>
+        </div>
+
+        @if (loading)
+        {
+            <div class="text-center text-muted py-5">
+                <div class="spinner-border text-secondary" role="status"></div>
+                <div class="mt-2">Memuat data...</div>
+            </div>
+        }
+        else if (result?.Error is not null)
+        {
+            <div class="alert alert-danger m-3">
+                <strong>Gagal memuat data.</strong><br />
+                @result.Error
+            </div>
+        }
+        else
+        {
+            <RadzenDataGrid Data="@DisplayRows" TItem="object[]"
+                            AllowSorting="false" AllowColumnResize="true" AllowAlternatingRows="true"
+                            AllowPaging="true" PageSize="10" PagerPosition="Radzen.PagerPosition.Top"
+                            PagerHorizontalAlign="Radzen.HorizontalAlign.Right"
+                            ShowPagingSummary="true" PagingSummaryFormat="Halaman {0} dari {1} ({2} data)"
+                            Density="Radzen.Density.Compact" GridLines="Radzen.DataGridGridLines.Horizontal"
+                            EmptyText="Tidak ada data."
+                            class="dpk-grid">
+                <Columns>
+                    @* Kolom aksi *@
+                    <RadzenDataGridColumn TItem="object[]" Title="#" Width="58px"
+                                          Sortable="false" TextAlign="Radzen.TextAlign.Center">
+                        <Template Context="row">
+                            <button class="dpk-edit" title="Buka" @onclick="() => OpenDoc(row)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </Template>
+                    </RadzenDataGridColumn>
+
+                    @* Kolom dinamis dari hasil query *@
+                    @for (var i = 0; i < _columns.Count; i++)
+                    {
+                        var col = i;                         // capture index
+                        var name = _columns[i];
+                        var numeric = _numericCols.Contains(col);
+                        <RadzenDataGridColumn TItem="object[]"
+                                              Width="@WidthOf(col)"
+                                              TextAlign="@(numeric ? Radzen.TextAlign.Right : Radzen.TextAlign.Left)">
+                            <HeaderTemplate>
+                                <div class="dpk-col-head">
+                                    <button type="button" class="dpk-col-title-btn" title="Urutkan"
+                                            @onclick="() => ToggleSort(col)">
+                                        <span class="dpk-col-title">@name</span>
+                                        <span class="dpk-sort">
+                                            @if (_sortCol == col)
+                                            {
+                                                <i class="bi @(_sortAsc ? "bi-caret-up-fill" : "bi-caret-down-fill")"></i>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-arrow-down-up dpk-sort-idle"></i>
+                                            }
+                                        </span>
+                                    </button>
+                                    @if (_showFilter)
+                                    {
+                                        <input class="dpk-col-filter" placeholder="Cari..." value="@FilterOf(col)"
+                                               @oninput="e => SetFilter(col, e.Value?.ToString())"
+                                               @onclick:stopPropagation="true" />
+                                    }
+                                </div>
+                            </HeaderTemplate>
+                            <Template Context="row">
+                                <span class="@(name.Equals("DocEntry", StringComparison.OrdinalIgnoreCase) ? "dpk-docno" : null)">
+                                    @FormatCell(row.Length > col ? row[col] : null)
+                                </span>
+                            </Template>
+                        </RadzenDataGridColumn>
+                    }
+                </Columns>
+            </RadzenDataGrid>
+        }
+    </div>
+</div>
+
+@code {
+    private bool _showFilter;
+    private bool loading;
+    private readonly Dictionary<int, string> _colFilters = new();   // filter per kolom (index -> teks)
+    private int _sortCol = -1;                                       // kolom yang diurutkan (-1 = tidak ada)
+    private bool _sortAsc = true;
+
+    private QueryResult? result;
+    private List<string> _columns = new();
+    private List<object[]> _rows = new();
+    private readonly HashSet<int> _numericCols = new();
+    private readonly List<int> _colWidths = new();                  // lebar tetap per kolom (px), fit isi
+    private int _docEntryIndex = -1;
+
+    // Query sama dengan halaman Buat Pajak Keluaran (SapQueryService menyesuaikan dialek DB).
+    private const string Sql = "SELECT DocEntry,CardName,CardCode,DocTotalFC, NumAtCard,Address FROM OINV";
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        loading = true;
+        result = null;
+        _columns = new();
+        _rows = new();
+        _numericCols.Clear();
+        _colWidths.Clear();
+        _colFilters.Clear();
+        _sortCol = -1;
+        _sortAsc = true;
+        _docEntryIndex = -1;
+        StateHasChanged();
+        await Task.Yield();
+
+        result = await QuerySvc.RunQueryAsync(Sql);
+
+        if (result?.Error is null && result is not null)
+        {
+            _columns = result.Columns;
+            _rows = result.Rows.Cast<object[]>().ToList();
+
+            // Deteksi tipe & hitung lebar tetap tiap kolom agar pas dengan isinya.
+            for (var c = 0; c < _columns.Count; c++)
+            {
+                if (_columns[c].Equals("DocEntry", StringComparison.OrdinalIgnoreCase)) _docEntryIndex = c;
+
+                var sample = _rows.Select(r => r.Length > c ? r[c] : null).FirstOrDefault(v => v is not null);
+                if (sample is decimal or double or float or long or int or short) _numericCols.Add(c);
+
+                // Panjang karakter terpanjang (header vs isi) -> lebar px.
+                var headerChars = _columns[c].Length + 4;                    // + ruang ikon sort
+                var dataChars = _rows.Count == 0
+                    ? 0
+                    : _rows.Max(r => c < r.Length ? FormatCell(r[c]).Length : 0);
+                var chars = Math.Max(headerChars, dataChars);
+                _colWidths.Add(Math.Clamp(chars * 8 + 26, 90, 320));         // min 90, maks 320 px
+            }
+        }
+
+        loading = false;
+    }
+
+    // Baris terfilter: setiap kolom yang punya teks filter harus cocok (AND antar kolom).
+    private IEnumerable<object[]> FilteredRows
+    {
+        get
+        {
+            IEnumerable<object[]> q = _rows;
+            foreach (var (col, term) in _colFilters)
+            {
+                if (string.IsNullOrWhiteSpace(term)) continue;
+                var needle = term.Trim();
+                q = q.Where(r => col < r.Length &&
+                    (FormatCell(r[col]).Contains(needle, StringComparison.OrdinalIgnoreCase)));
+            }
+            return q;
+        }
+    }
+
+    // Baris final = hasil filter, lalu diurutkan sesuai kolom terpilih.
+    private IEnumerable<object[]> DisplayRows
+    {
+        get
+        {
+            var rows = FilteredRows;
+            if (_sortCol < 0) return rows;
+
+            var col = _sortCol;
+            var list = rows.ToList();
+            list.Sort((a, b) => CompareCell(
+                col < a.Length ? a[col] : null,
+                col < b.Length ? b[col] : null));
+            if (!_sortAsc) list.Reverse();
+            return list;
+        }
+    }
+
+    // Cycle: asc -> desc -> tanpa urut.
+    private void ToggleSort(int col)
+    {
+        if (_sortCol != col) { _sortCol = col; _sortAsc = true; }
+        else if (_sortAsc) { _sortAsc = false; }
+        else { _sortCol = -1; _sortAsc = true; }
+    }
+
+    private static int CompareCell(object? x, object? y)
+    {
+        if (x is null && y is null) return 0;
+        if (x is null) return -1;
+        if (y is null) return 1;
+        if (x.GetType() == y.GetType() && x is IComparable xc) return xc.CompareTo(y);
+        return string.Compare(x.ToString(), y.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string FilterOf(int col) => _colFilters.TryGetValue(col, out var v) ? v : string.Empty;
+
+    private void SetFilter(int col, string? value)
+    {
+        if (string.IsNullOrEmpty(value)) _colFilters.Remove(col);
+        else _colFilters[col] = value;
+    }
+
+    private void ToggleFilter()
+    {
+        _showFilter = !_showFilter;
+        if (!_showFilter) _colFilters.Clear();
+    }
+
+    private void OpenDoc(object[] row)
+    {
+        var doc = _docEntryIndex >= 0 && row.Length > _docEntryIndex ? row[_docEntryIndex] : null;
+        Nav.NavigateTo(doc is null
+            ? "/efaktur/create-pajak-keluaran"
+            : $"/efaktur/create-pajak-keluaran?doc={doc}");
+    }
+
+    // Lebar tetap kolom (hasil hitung fit-isi di LoadData).
+    private string WidthOf(int col) => (col < _colWidths.Count ? _colWidths[col] : 140) + "px";
+
+    private static string FormatCell(object? v) => v switch
+    {
+        null => "",
+        decimal d => d.ToString("#,##0.00"),
+        double db => db.ToString("#,##0.00"),
+        float f => f.ToString("#,##0.00"),
+        DateTime dt => dt.ToString("dd.MM.yyyy"),
+        _ => v.ToString() ?? "",
+    };
+}

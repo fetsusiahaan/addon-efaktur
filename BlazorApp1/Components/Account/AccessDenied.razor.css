@@ -1,0 +1,53 @@
+.ad-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    padding: 2rem;
+}
+
+.ad-card {
+    text-align: center;
+    max-width: 420px;
+    padding: 2.5rem 2rem;
+    background: #fff;
+    border: 1px solid #e3e6ea;
+    border-radius: 14px;
+    box-shadow: 0 4px 18px rgba(16,24,40,.06);
+}
+
+.ad-icon {
+    font-size: 3rem;
+    color: #d92d20;
+}
+
+.ad-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1f2d3d;
+    margin: .75rem 0 .25rem;
+}
+
+.ad-text {
+    color: #667085;
+    margin-bottom: .75rem;
+}
+
+.ad-user {
+    font-size: .85rem;
+    color: #475467;
+    margin-bottom: 1.25rem;
+}
+
+.ad-btn {
+    background: #1f2d3d;
+    color: #fff;
+    border: 1px solid #1f2d3d;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.ad-btn:hover {
+    background: #16212e;
+    color: #fff;
+}

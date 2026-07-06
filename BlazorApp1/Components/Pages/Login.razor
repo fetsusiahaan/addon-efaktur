@@ -1,0 +1,115 @@
+@page "/login"
+@layout BlazorApp1.Components.Layout.LoginLayout
+@attribute [AllowAnonymous]
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@inject UserService Users
+@inject NavigationManager Nav
+
+<PageTitle>Masuk — Add-On E-Faktur</PageTitle>
+
+<div class="login-card">
+    <div class="login-head">
+        <div class="login-logo"><i class="bi bi-receipt-cutoff"></i></div>
+        <h1 class="login-title">Add-On E-Faktur</h1>
+        <p class="login-sub">Silakan masuk untuk melanjutkan</p>
+    </div>
+
+    <EditForm Model="Input" FormName="login" method="post" OnValidSubmit="LoginUser" Enhance="false">
+        <DataAnnotationsValidator />
+
+        @if (_error is not null)
+        {
+            <div class="login-alert"><i class="bi bi-exclamation-triangle me-1"></i>@_error</div>
+        }
+
+        <label class="login-label">Username</label>
+        <div class="login-input">
+            <i class="bi bi-person login-icon"></i>
+            <InputText @bind-Value="Input.Username" class="form-control" placeholder="Username" autocomplete="username" />
+        </div>
+        <ValidationMessage For="() => Input.Username" class="login-val" />
+
+        <label class="login-label mt-3">Password</label>
+        <div class="login-input">
+            <i class="bi bi-lock login-icon"></i>
+            <InputText id="loginPwd" type="password" @bind-Value="Input.Password" class="form-control has-eye" placeholder="Password" autocomplete="current-password" />
+            <button type="button" class="login-eye" tabindex="-1" aria-label="Lihat / sembunyikan password"
+                    onclick="togglePwd(this)">
+                <i class="bi bi-eye"></i>
+            </button>
+        </div>
+        <ValidationMessage For="() => Input.Password" class="login-val" />
+
+        <button type="submit" class="btn login-btn mt-4">
+            <i class="bi bi-box-arrow-in-right me-1"></i> Masuk
+        </button>
+    </EditForm>
+</div>
+
+@code {
+    [CascadingParameter] public HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm] public LoginInput Input { get; set; } = new();
+
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+
+    private string? _error;
+
+    private async Task LoginUser()
+    {
+        var user = Users.ValidateCredentials(Input.Username, Input.Password);
+        if (user is null)
+        {
+            _error = "Username atau password salah.";
+            return;
+        }
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.Username),
+            new(ClaimTypes.Role, user.Role),
+            new("full_name", user.FullName),
+        };
+
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var props = new AuthenticationProperties
+        {
+            IsPersistent = true,
+            ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8),
+        };
+
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            new ClaimsPrincipal(identity), props);
+
+        Nav.NavigateTo(SafeReturnUrl() ?? Destination(user.Role));
+    }
+
+    // Tujuan default berdasar role: Admin -> dashboard, selain itu -> E-Faktur.
+    private static string Destination(string? role) =>
+        string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)
+            ? "/"
+            : "/efaktur/pajak-masukan";
+
+    // Hanya izinkan ReturnUrl lokal (cegah open-redirect).
+    private string? SafeReturnUrl()
+    {
+        if (string.IsNullOrWhiteSpace(ReturnUrl)) return null;
+        if (!ReturnUrl.StartsWith('/') || ReturnUrl.StartsWith("//") || ReturnUrl.StartsWith("/\\"))
+            return null;
+        return ReturnUrl;
+    }
+
+    public sealed class LoginInput
+    {
+        [Required(ErrorMessage = "Username wajib diisi.")]
+        public string Username { get; set; } = "";
+
+        [Required(ErrorMessage = "Password wajib diisi.")]
+        public string Password { get; set; } = "";
+    }
+}

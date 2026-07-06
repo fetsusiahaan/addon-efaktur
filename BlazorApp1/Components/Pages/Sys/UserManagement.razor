@@ -1,5 +1,6 @@
 @page "/sys/users"
 @rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
 @using System.Text
 @using BlazorApp1.Models
 @using BlazorApp1.Services
@@ -11,10 +12,7 @@
 
 <div class="um-page">
 
-    <div class="mb-3">
-        <h1 class="h4 mb-0">User Management</h1>
-        <small class="text-muted">System › Administration</small>
-    </div>
+    <PageHeader Title="User Management" Breadcrumb="System › Administration" />
 
     <div class="um-card">
 

@@ -1,9 +1,10 @@
 ﻿@page "/weather"
 @attribute [StreamRendering]
+@attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>Weather</PageTitle>
 
-<h1>Weather</h1>
+<PageHeader Title="Weather" Breadcrumb="Demo" />
 
 <p>This component demonstrates showing data.</p>
 

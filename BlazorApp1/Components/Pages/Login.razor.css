@@ -1,0 +1,134 @@
+.login-card {
+    width: 100%;
+    max-width: 400px;
+    background: #fff;
+    border-radius: 16px;
+    padding: 2.25rem 2rem 2rem;
+    box-shadow: 0 18px 50px rgba(0,0,0,.35);
+}
+
+.login-head {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.login-logo {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto .75rem;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #123a5c, #5b9bd5);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+}
+
+.login-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #1f2d3d;
+    margin: 0;
+}
+
+.login-sub {
+    color: #667085;
+    font-size: .9rem;
+    margin: .25rem 0 0;
+}
+
+.login-label {
+    display: block;
+    font-size: .8rem;
+    font-weight: 600;
+    color: #475467;
+    margin-bottom: .35rem;
+}
+
+.login-input {
+    position: relative;
+}
+
+/* Ikon kiri (di dalam markup komponen -> selector biasa) */
+.login-input .login-icon {
+    position: absolute;
+    left: .85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #98a2b3;
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* Input dirender oleh komponen anak <InputText> -> butuh ::deep menembus batas */
+.login-input ::deep .form-control {
+    padding-left: 2.4rem;
+    height: 44px;
+    border-color: #e3e6ea;
+}
+
+.login-input ::deep .form-control.has-eye {
+    padding-right: 2.7rem;
+}
+
+.login-input ::deep .form-control:focus {
+    border-color: #5b9bd5;
+    box-shadow: 0 0 0 3px rgba(91,155,213,.18);
+}
+
+/* Tombol mata (lihat/sembunyikan password) */
+.login-eye {
+    position: absolute;
+    right: .5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    background: transparent;
+    color: #98a2b3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 6px;
+    z-index: 2;
+}
+
+.login-eye:hover {
+    color: #475467;
+    background: #f2f4f7;
+}
+
+.login-val {
+    display: block;
+    color: #d92d20;
+    font-size: .78rem;
+    margin-top: .25rem;
+}
+
+.login-alert {
+    background: #fef3f2;
+    border: 1px solid #fecdca;
+    color: #b42318;
+    border-radius: 8px;
+    padding: .6rem .75rem;
+    font-size: .85rem;
+    margin-bottom: 1rem;
+}
+
+.login-btn {
+    width: 100%;
+    height: 46px;
+    background: #123a5c;
+    color: #fff;
+    border: none;
+    font-weight: 600;
+    border-radius: 9px;
+}
+
+.login-btn:hover {
+    background: #0e2e49;
+    color: #fff;
+}

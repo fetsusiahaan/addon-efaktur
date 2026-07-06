@@ -1,0 +1,23 @@
+<div class="ad-wrap">
+    <div class="ad-card">
+        <i class="bi bi-shield-lock ad-icon"></i>
+        <h1 class="ad-title">Akses Ditolak</h1>
+        <p class="ad-text">Anda tidak memiliki izin untuk membuka halaman ini.</p>
+        <AuthorizeView>
+            <Authorized>
+                <div class="ad-user">Masuk sebagai <strong>@context.User.Identity?.Name</strong></div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* Link biasa agar berfungsi walau halaman static SSR (tanpa interaktivitas).
+           Tujuan disesuaikan role: Admin -> dashboard, User -> halaman E-Faktur. *@
+        <AuthorizeView Roles="Admin">
+            <Authorized>
+                <a class="btn ad-btn" href="/"><i class="bi bi-house-door me-1"></i> Kembali</a>
+            </Authorized>
+            <NotAuthorized>
+                <a class="btn ad-btn" href="/efaktur/pajak-masukan"><i class="bi bi-house-door me-1"></i> Kembali</a>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
+</div>

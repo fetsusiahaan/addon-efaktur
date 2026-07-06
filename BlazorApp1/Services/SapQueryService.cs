@@ -1,5 +1,8 @@
 using System.Data.Common;
+using System.Security.Claims;
 using System.Text;
+using BlazorApp1.Models;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Data.SqlClient;
 using Sap.Data.Hana;
 
@@ -21,8 +24,48 @@ public class QueryResult
 public class SapQueryService
 {
     private readonly DbManagerService _dbMgr;
+    private readonly AuthenticationStateProvider _auth;
+    private readonly UserService _users;
 
-    public SapQueryService(DbManagerService dbMgr) => _dbMgr = dbMgr;
+    public SapQueryService(DbManagerService dbMgr, AuthenticationStateProvider auth, UserService users)
+    {
+        _dbMgr = dbMgr;
+        _auth = auth;
+        _users = users;
+    }
+
+    /// <summary>
+    /// Tentukan koneksi yang dipakai:
+    /// - Role "User": memakai koneksi bernama sesuai field KoneksiDb user
+    ///   (dari User Management). Bila kosong / tak ditemukan → "No choose DB".
+    /// - Role lain (Admin): memakai koneksi yang sedang AKTIF di Database Manager.
+    /// </summary>
+    public async Task<(DbConnectionEntry? Entry, string? Error)> ResolveConnectionAsync()
+    {
+        var state = await _auth.GetAuthenticationStateAsync();
+        var user = state.User;
+
+        if (user.IsInRole("User"))
+        {
+            // Baca KoneksiDb terkini langsung dari tabel user (real-time,
+            // tanpa perlu login ulang saat field diubah di User Management).
+            string? koneksi = null;
+            if (int.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var uid))
+                koneksi = _users.GetKoneksiDb(uid);
+
+            if (string.IsNullOrWhiteSpace(koneksi))
+                return (null, "No choose DB");
+
+            var entry = _dbMgr.GetAll()
+                .FirstOrDefault(c => string.Equals(c.Nama, koneksi, StringComparison.OrdinalIgnoreCase));
+            return entry is null ? (null, "No choose DB") : (entry, null);
+        }
+
+        var active = _dbMgr.GetActive();
+        return active is null
+            ? (null, "Belum ada koneksi aktif. Buka Database Manager lalu klik 'Set Aktif' pada salah satu koneksi.")
+            : (active, null);
+    }
 
     /// <summary>
     /// Jalankan query ke koneksi yang sedang aktif. Service ini yang
@@ -41,10 +84,10 @@ public class SapQueryService
             return result;
         }
 
-        var active = _dbMgr.GetActive();
+        var (active, connError) = await ResolveConnectionAsync();
         if (active is null)
         {
-            result.Error = "Belum ada koneksi aktif. Buka Database Manager lalu klik 'Set Aktif' pada salah satu koneksi.";
+            result.Error = connError;
             return result;
         }
 

@@ -1,0 +1,192 @@
+.dpk-page {
+    --dpk-navy: #123a5c;
+    --dpk-border: #e3e6ea;
+    --dpk-head-bg: #eef4fb;
+}
+
+/* ── Tombol New di header ── */
+.dpk-new {
+    background: var(--dpk-navy);
+    color: #fff;
+    border: 1px solid var(--dpk-navy);
+    font-weight: 600;
+    padding: .6rem 1.3rem;
+    border-radius: 9px;
+    white-space: nowrap;
+}
+
+.dpk-new:hover {
+    background: #0e2e49;
+}
+
+/* ── Kartu daftar ── */
+.dpk-card {
+    background: #fff;
+    border: 1px solid var(--dpk-border);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(16,24,40,.05);
+    overflow: hidden;
+}
+
+.dpk-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background: var(--dpk-head-bg);
+    border-bottom: 1px solid var(--dpk-border);
+    padding: .75rem 1rem;
+}
+
+.dpk-card-title {
+    font-weight: 700;
+    color: #1f2d3d;
+}
+
+.dpk-card-tools {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+/* Header kolom: judul + input filter (muncul saat Filter aktif) */
+.dpk-col-head {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    width: 100%;
+}
+
+.dpk-col-title-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    width: fit-content;
+}
+
+.dpk-col-title {
+    text-transform: uppercase;
+    font-size: .72rem;
+    letter-spacing: .03em;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.dpk-col-title-btn:hover .dpk-col-title {
+    color: #1f2d3d;
+}
+
+.dpk-sort {
+    font-size: .7rem;
+    color: #1f5fa8;
+    display: inline-flex;
+}
+
+.dpk-sort .dpk-sort-idle {
+    color: #b6c0cc;
+}
+
+.dpk-col-title-btn:hover .dpk-sort-idle {
+    color: #64748b;
+}
+
+.dpk-col-filter {
+    width: 100%;
+    border: 1px solid var(--dpk-border);
+    border-radius: 6px;
+    padding: .3rem .5rem;
+    font-size: .8rem;
+    font-weight: 400;
+    color: #1f2d3d;
+    background: #fff;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.dpk-col-filter:focus {
+    outline: none;
+    border-color: #5b9bd5;
+    box-shadow: 0 0 0 3px rgba(91,155,213,.15);
+}
+
+.dpk-filter-btn {
+    background: #fff;
+    border: 1px solid var(--dpk-border);
+    color: #475467;
+    font-size: .85rem;
+    padding: .35rem .8rem;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.dpk-filter-btn:hover {
+    background: #f4f6f8;
+}
+
+.dpk-filter-btn.active {
+    background: var(--dpk-navy);
+    color: #fff;
+    border-color: var(--dpk-navy);
+}
+
+/* ── Grid ── */
+.dpk-grid {
+    --rz-grid-header-background-color: var(--dpk-head-bg);
+    --rz-grid-header-color: #64748b;
+    border: none;
+}
+
+/* Judul kolom: kecil, kapital, abu-abu (seperti mockup) */
+.dpk-card ::deep .rz-grid-table thead th .rz-column-title-content {
+    text-transform: uppercase;
+    font-size: .72rem;
+    letter-spacing: .03em;
+    font-weight: 600;
+    color: #64748b;
+}
+
+/* Sel: satu baris, terpotong rapi (ellipsis) bila melebihi lebar kolom */
+.dpk-card ::deep .rz-data-grid-data .rz-cell-data {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+/* No. Dokumen ditonjolkan biru */
+.dpk-docno {
+    color: #1f5fa8;
+    font-weight: 700;
+}
+
+/* Tombol edit per baris */
+.dpk-edit {
+    background: transparent;
+    border: none;
+    color: #1f5fa8;
+    cursor: pointer;
+    padding: .2rem .35rem;
+    border-radius: 6px;
+}
+
+.dpk-edit:hover {
+    background: #eaf1fb;
+}
+
+/* Pager: halaman aktif navy */
+.dpk-card ::deep .rz-paginator .rz-paginator-page.rz-state-active {
+    background: var(--dpk-navy);
+    border-color: var(--dpk-navy);
+    color: #fff;
+}
+
+.dpk-card ::deep .rz-paginator {
+    background: #fff;
+    border: none;
+    padding: .5rem 1rem;
+}

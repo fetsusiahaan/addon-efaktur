@@ -5,7 +5,10 @@
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">Add-On E-faktur</a>
+        <AuthorizeView Roles="Admin">
+            <Authorized><a class="navbar-brand" href="/">Add-On E-faktur</a></Authorized>
+            <NotAuthorized><a class="navbar-brand" href="/efaktur/pajak-masukan">Add-On E-faktur</a></NotAuthorized>
+        </AuthorizeView>
     </div>
 </div>
 
@@ -14,55 +17,59 @@
 <div class="nav-scrollable">
     <nav class="flex-column">
 
-        @* ── E-FAKTUR ── *@
-        <div class="nav-section-label">E-Faktur</div>
+        @* ── E-FAKTUR (Admin & User) ── *@
+        <AuthorizeView Roles="Admin,User">
+            <div class="nav-section-label">E-Faktur</div>
 
-        <div class="nav-group nav-item px-3">
-            <button class="nav-group-toggle @(IsOpen("ef") ? "open" : "")" @onclick='() => Toggle("ef")'>
-                <span class="nav-icon bi-receipt" aria-hidden="true"></span>
-                <span class="nav-label">E-Faktur</span>
-                <span class="nav-chevron">&#8250;</span>
-            </button>
-            <div class="nav-group-items @(IsOpen("ef") ? "show" : "")">
-                <NavLink class="nav-sublink" href="/efaktur/pajak-masukan" @onclick="CloseNavbar">
-                    <span class="nav-sub-icon bi-arrow-down-circle" aria-hidden="true"></span>
-                    Pajak Masukan
-                </NavLink>
-                <NavLink class="nav-sublink" href="/efaktur/pajak-keluaran" @onclick="CloseNavbar">
-                    <span class="nav-sub-icon bi-arrow-up-circle" aria-hidden="true"></span>
-                    Pajak Keluaran
-                </NavLink>
+            <div class="nav-group nav-item px-3">
+                <button class="nav-group-toggle @(IsOpen("ef") ? "open" : "")" @onclick='() => Toggle("ef")'>
+                    <span class="nav-icon bi-receipt" aria-hidden="true"></span>
+                    <span class="nav-label">E-Faktur</span>
+                    <span class="nav-chevron">&#8250;</span>
+                </button>
+                <div class="nav-group-items @(IsOpen("ef") ? "show" : "")">
+                    <NavLink class="nav-sublink" href="/efaktur/pajak-masukan" @onclick="CloseNavbar">
+                        <span class="nav-sub-icon bi-arrow-down-circle" aria-hidden="true"></span>
+                        Pajak Masukan
+                    </NavLink>
+                    <NavLink class="nav-sublink" href="/efaktur/pajak-keluaran" @onclick="CloseNavbar">
+                        <span class="nav-sub-icon bi-arrow-up-circle" aria-hidden="true"></span>
+                        Pajak Keluaran
+                    </NavLink>
+                </div>
             </div>
-        </div>
+        </AuthorizeView>
 
-        @* ── SYSTEM ── *@
-        <div class="nav-section-label">System</div>
+        @* ── SYSTEM (Admin saja) ── *@
+        <AuthorizeView Roles="Admin">
+            <div class="nav-section-label">System</div>
 
-        <div class="nav-group nav-item px-3">
-            <button class="nav-group-toggle @(IsOpen("sys") ? "open" : "")" @onclick='() => Toggle("sys")'>
-                <span class="nav-icon bi-sliders" aria-hidden="true"></span>
-                <span class="nav-label">Administration</span>
-                <span class="nav-chevron">&#8250;</span>
-            </button>
-            <div class="nav-group-items @(IsOpen("sys") ? "show" : "")">
-                <NavLink class="nav-sublink" href="/sys/database-manager" @onclick="CloseNavbar">
-                    <span class="nav-sub-icon bi-plug" aria-hidden="true"></span>
-                    Database Manager
-                </NavLink>
-                <NavLink class="nav-sublink" href="/sys/users" @onclick="CloseNavbar">
-                    <span class="nav-sub-icon bi-person-gear" aria-hidden="true"></span>
-                    User Management
-                </NavLink>
-                <NavLink class="nav-sublink" href="/sys/roles" @onclick="CloseNavbar">
-                    <span class="nav-sub-icon bi-shield-lock" aria-hidden="true"></span>
-                    Roles &amp; Permissions
-                </NavLink>
-                <NavLink class="nav-sublink" href="/sys/audit-log" @onclick="CloseNavbar">
-                    <span class="nav-sub-icon bi-journal-code" aria-hidden="true"></span>
-                    Audit Log
-                </NavLink>
+            <div class="nav-group nav-item px-3">
+                <button class="nav-group-toggle @(IsOpen("sys") ? "open" : "")" @onclick='() => Toggle("sys")'>
+                    <span class="nav-icon bi-sliders" aria-hidden="true"></span>
+                    <span class="nav-label">Administration</span>
+                    <span class="nav-chevron">&#8250;</span>
+                </button>
+                <div class="nav-group-items @(IsOpen("sys") ? "show" : "")">
+                    <NavLink class="nav-sublink" href="/sys/database-manager" @onclick="CloseNavbar">
+                        <span class="nav-sub-icon bi-plug" aria-hidden="true"></span>
+                        Database Manager
+                    </NavLink>
+                    <NavLink class="nav-sublink" href="/sys/users" @onclick="CloseNavbar">
+                        <span class="nav-sub-icon bi-person-gear" aria-hidden="true"></span>
+                        User Management
+                    </NavLink>
+                    <NavLink class="nav-sublink" href="/sys/roles" @onclick="CloseNavbar">
+                        <span class="nav-sub-icon bi-shield-lock" aria-hidden="true"></span>
+                        Roles &amp; Permissions
+                    </NavLink>
+                    <NavLink class="nav-sublink" href="/sys/audit-log" @onclick="CloseNavbar">
+                        <span class="nav-sub-icon bi-journal-code" aria-hidden="true"></span>
+                        Audit Log
+                    </NavLink>
+                </div>
             </div>
-        </div>
+        </AuthorizeView>
 
     </nav>
 </div>

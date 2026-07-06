@@ -1,8 +1,8 @@
 ﻿@page "/"
+@attribute [Authorize(Roles = "Admin")]
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Dashboard</PageTitle>
 
-<h1>Hello, world!</h1>
+<PageHeader Title="Dashboard" Breadcrumb="Home" />
 
-Welcome to your new app.
-testing by Fet
+<p>Welcome to your new app.</p>
