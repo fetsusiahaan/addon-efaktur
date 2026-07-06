@@ -49,11 +49,21 @@
                     {
                         <div class="col-md-6">
                             <label class="ef-label">From Date</label>
-                            <input type="date" class="form-control" />
+                            <div class="ef-date-field">
+                                <input class="form-control" placeholder="dd.mm.yy" maxlength="8" inputmode="numeric"
+                                       value="@fromDate" @oninput="e => fromDate = FormatDateMask(e.Value?.ToString())" />
+                                <input type="date" class="ef-date-native" value="@ToIso(fromDate)"
+                                       @onchange="e => fromDate = FromIso(e.Value?.ToString())" />
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="ef-label">To Date</label>
-                            <input type="date" class="form-control" />
+                            <div class="ef-date-field">
+                                <input class="form-control" placeholder="dd.mm.yy" maxlength="8" inputmode="numeric"
+                                       value="@toDate" @oninput="e => toDate = FormatDateMask(e.Value?.ToString())" />
+                                <input type="date" class="ef-date-native" value="@ToIso(toDate)"
+                                       @onchange="e => toDate = FromIso(e.Value?.ToString())" />
+                            </div>
                         </div>
                     }
                     else if (searchBy == "Vendor")
@@ -180,6 +190,38 @@
     private QueryResult? result;
     private List<PajakMasukanRow> _rows = new();
     private IList<PajakMasukanRow>? _selected;
+
+    // Filter tanggal (format dd.MM.yy), diisi via input bermask.
+    private string fromDate = "";
+    private string toDate = "";
+
+    // Ubah ketikan angka jadi format dd.MM.yy, mis. "290126" -> "29.01.26".
+    private static string FormatDateMask(string? raw)
+    {
+        var d = new string((raw ?? "").Where(char.IsDigit).ToArray());
+        if (d.Length > 6) d = d[..6];
+        return d.Length switch
+        {
+            <= 2 => d,
+            <= 4 => d[..2] + "." + d[2..],
+            _    => d[..2] + "." + d[2..4] + "." + d[4..]
+        };
+    }
+
+    // "29.01.26" -> "2026-01-29" (untuk value datepicker native).
+    private static string ToIso(string ddmmyy)
+    {
+        var d = new string((ddmmyy ?? "").Where(char.IsDigit).ToArray());
+        return d.Length == 6 ? $"20{d[4..6]}-{d[2..4]}-{d[..2]}" : "";
+    }
+
+    // "2026-01-29" (dari datepicker) -> "29.01.26".
+    private static string FromIso(string? iso)
+    {
+        if (!string.IsNullOrEmpty(iso) && DateTime.TryParse(iso, out var dt))
+            return $"{dt:dd}.{dt:MM}.{dt:yy}";
+        return "";
+    }
 
     // === Query dari Query Manager (ganti sesuai kebutuhan) ===
     // Ditulis polos; SapQueryService yang menyesuaikan dialek per jenis DB.

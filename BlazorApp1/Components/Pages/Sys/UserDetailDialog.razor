@@ -21,6 +21,9 @@
         <dt>Role</dt>
         <dd>@User.Role</dd>
 
+        <dt>Koneksi DB</dt>
+        <dd>@(string.IsNullOrEmpty(User.KoneksiDb) ? "—" : User.KoneksiDb)</dd>
+
         <dt>Status</dt>
         <dd>@User.Status</dd>
 

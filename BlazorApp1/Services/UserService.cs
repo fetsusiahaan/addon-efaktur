@@ -41,9 +41,18 @@ public class UserService
                         Status     TEXT,
                         Role       TEXT,
                         JoinedDate TEXT,
-                        LastActive TEXT
+                        LastActive TEXT,
+                        KoneksiDb  TEXT
                     );";
                 cmd.ExecuteNonQuery();
+            }
+
+            // Migrasi: tambah kolom KoneksiDb bila DB lama belum punya.
+            if (!ColumnExists(conn, "Users", "KoneksiDb"))
+            {
+                using var alter = conn.CreateCommand();
+                alter.CommandText = "ALTER TABLE Users ADD COLUMN KoneksiDb TEXT;";
+                alter.ExecuteNonQuery();
             }
 
             using (var check = conn.CreateCommand())
@@ -103,7 +112,7 @@ public class UserService
         using var conn = new SqliteConnection(_connString);
         conn.Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT Id,FullName,Email,Username,Status,Role,JoinedDate,LastActive FROM Users ORDER BY Id;";
+        cmd.CommandText = "SELECT Id,FullName,Email,Username,Status,Role,JoinedDate,LastActive,KoneksiDb FROM Users ORDER BY Id;";
         using var r = cmd.ExecuteReader();
         while (r.Read())
         {
@@ -117,9 +126,21 @@ public class UserService
                 Role       = r.IsDBNull(5) ? "User" : r.GetString(5),
                 JoinedDate = ParseDate(r, 6),
                 LastActive = ParseDate(r, 7),
+                KoneksiDb  = r.IsDBNull(8) ? null : r.GetString(8),
             });
         }
         return list;
+    }
+
+    private static bool ColumnExists(SqliteConnection conn, string table, string column)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"PRAGMA table_info({table});";
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            if (string.Equals(r.GetString(1), column, StringComparison.OrdinalIgnoreCase))
+                return true;
+        return false;
     }
 
     private static DateTime ParseDate(SqliteDataReader r, int i) =>
@@ -133,8 +154,8 @@ public class UserService
         using var conn = new SqliteConnection(_connString);
         conn.Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"INSERT INTO Users (FullName,Email,Username,Status,Role,JoinedDate,LastActive)
-                            VALUES ($f,$e,$u,$s,$r,$j,$l);";
+        cmd.CommandText = @"INSERT INTO Users (FullName,Email,Username,Status,Role,JoinedDate,LastActive,KoneksiDb)
+                            VALUES ($f,$e,$u,$s,$r,$j,$l,$k);";
         Bind(cmd, u);
         cmd.ExecuteNonQuery();
     }
@@ -146,7 +167,7 @@ public class UserService
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"UPDATE Users SET FullName=$f,Email=$e,Username=$u,Status=$s,Role=$r,
-                            JoinedDate=$j,LastActive=$l WHERE Id=$id;";
+                            JoinedDate=$j,LastActive=$l,KoneksiDb=$k WHERE Id=$id;";
         Bind(cmd, u);
         cmd.Parameters.AddWithValue("$id", u.Id);
         cmd.ExecuteNonQuery();
@@ -172,5 +193,6 @@ public class UserService
         cmd.Parameters.AddWithValue("$r", u.Role);
         cmd.Parameters.AddWithValue("$j", u.JoinedDate.ToString("o"));
         cmd.Parameters.AddWithValue("$l", u.LastActive.ToString("o"));
+        cmd.Parameters.AddWithValue("$k", (object?)u.KoneksiDb ?? DBNull.Value);
     }
 }

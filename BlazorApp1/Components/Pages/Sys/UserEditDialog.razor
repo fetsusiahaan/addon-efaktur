@@ -1,5 +1,7 @@
 @using BlazorApp1.Models
+@using BlazorApp1.Services
 @inject Radzen.DialogService DialogService
+@inject DbManagerService DbMgr
 
 <div class="ued">
     <div class="row g-3">
@@ -37,6 +39,16 @@
             <label class="ued-label">Joined Date</label>
             <input class="form-control" type="date" @bind="_u.JoinedDate" />
         </div>
+        <div class="col-md-6">
+            <label class="ued-label">Koneksi DB</label>
+            <select class="form-select" @bind="_u.KoneksiDb">
+                <option value="">— tidak ada —</option>
+                @foreach (var c in _connections)
+                {
+                    <option value="@c.Nama">@c.Nama (@c.JenisDb)</option>
+                }
+            </select>
+        </div>
     </div>
 
     @if (_error is not null)
@@ -57,18 +69,22 @@
 
     private AppUser _u = new();
     private string? _error;
+    private List<DbConnectionEntry> _connections = new();
 
     private static readonly string[] Statuses = { "Active", "Inactive", "Banned", "Pending", "Suspended" };
     private static readonly string[] Roles = { "Admin", "User", "Guest", "Moderator" };
 
     protected override void OnInitialized()
     {
+        _connections = DbMgr.GetAll();
+
         _u = User is null
             ? new AppUser { JoinedDate = DateTime.Today }
             : new AppUser
             {
                 Id = User.Id, FullName = User.FullName, Email = User.Email, Username = User.Username,
-                Status = User.Status, Role = User.Role, JoinedDate = User.JoinedDate, LastActive = User.LastActive
+                Status = User.Status, Role = User.Role, JoinedDate = User.JoinedDate,
+                LastActive = User.LastActive, KoneksiDb = User.KoneksiDb
             };
     }
 

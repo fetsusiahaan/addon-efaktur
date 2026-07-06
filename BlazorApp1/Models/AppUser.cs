@@ -14,6 +14,9 @@ public class AppUser
     public DateTime JoinedDate { get; set; } = DateTime.Today;
     public DateTime LastActive { get; set; } = DateTime.Now;
 
+    /// <summary>Nama koneksi DB terpilih (dari Database Manager).</summary>
+    public string? KoneksiDb { get; set; }
+
     /// <summary>Inisial untuk avatar (mis. "John Smith" -> "JS").</summary>
     public string Initials
     {

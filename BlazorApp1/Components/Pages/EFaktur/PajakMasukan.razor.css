@@ -43,6 +43,45 @@
     font-size: .9rem;
 }
 
+/* Field tanggal: text bermask + ikon kalender (datepicker native) di ujung */
+.ef-date-field {
+    position: relative;
+}
+
+.ef-date-field .form-control {
+    padding-right: 2.3rem;
+}
+
+.ef-date-field .ef-date-native {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 2.3rem;
+    border: none;
+    background: transparent;
+    color: transparent;
+    cursor: pointer;
+}
+
+/* Sembunyikan segmen teks tanggal (dd/mm/yy) & spinner — sisakan ikon kalender */
+.ef-date-field .ef-date-native::-webkit-datetime-edit,
+.ef-date-field .ef-date-native::-webkit-inner-spin-button,
+.ef-date-field .ef-date-native::-webkit-clear-button {
+    display: none;
+}
+
+.ef-date-field .ef-date-native::-webkit-calendar-picker-indicator {
+    position: absolute;
+    right: .5rem;
+    opacity: .55;
+    cursor: pointer;
+}
+
+.ef-date-field .ef-date-native::-webkit-calendar-picker-indicator:hover {
+    opacity: .9;
+}
+
 .ef-page .ef-table {
     font-size: .85rem;
 }

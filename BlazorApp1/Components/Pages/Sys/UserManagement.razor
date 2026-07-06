@@ -80,6 +80,10 @@
 
                 <RadzenDataGridColumn TItem="AppUser" Property="Role" Title="Role" Width="120px" />
 
+                <RadzenDataGridColumn TItem="AppUser" Property="KoneksiDb" Title="Koneksi DB" Width="150px">
+                    <Template Context="u">@(string.IsNullOrEmpty(u.KoneksiDb) ? "—" : u.KoneksiDb)</Template>
+                </RadzenDataGridColumn>
+
                 <RadzenDataGridColumn TItem="AppUser" Title="Actions" Sortable="false" Width="120px" TextAlign="Radzen.TextAlign.Center">
                     <Template Context="u">
                         <button class="um-icon" title="Detail" @onclick="() => ShowDetail(u)"><i class="bi bi-eye"></i></button>
