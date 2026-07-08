@@ -48,7 +48,7 @@ public class PajakKeluaranService
         {
             "Invoice Number" => ("__IDUFAKTURPAJAK_GETINVOICEFP",          f.InvoiceFrom, f.InvoiceTo),
             "Date"           => ("__IDUFAKTURPAJAK_GETINVOICEFP_DATE",     ToYmd(f.DateFrom), ToYmd(f.DateTo)),
-            "Vendor"         => ("__IDUFAKTURPAJAK_GETINVOICEFP_CUSTOMER", f.CustomerFrom, f.CustomerTo),
+            "Customer"       => ("__IDUFAKTURPAJAK_GETINVOICEFP_CUSTOMER", f.CustomerFrom, f.CustomerTo),
             _                => ("__IDUFAKTURPAJAK_GETINVOICEFP",          f.InvoiceFrom, f.InvoiceTo),
         };
 

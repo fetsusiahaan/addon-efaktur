@@ -16,6 +16,10 @@ public class DbManagerService
     private readonly JsonSerializerOptions _jsonOpts = new() { WriteIndented = true };
     private const string Section = "DatabaseConnections";
 
+    // Sinkronkan baca/tulis file lintas sirkuit (mis. polling DbStatus vs
+    // Simpan/Set Aktif di Database Manager) agar tidak membaca file setengah tertulis.
+    private static readonly object _fileLock = new();
+
     public DbManagerService(IWebHostEnvironment env)
     {
         // appsettings.json ada di root project (ContentRootPath)
@@ -205,15 +209,34 @@ public class DbManagerService
 
     private JsonObject ReadRoot()
     {
-        if (!File.Exists(_settingsPath))
-            return new JsonObject();
-        var text = File.ReadAllText(_settingsPath);
-        return JsonNode.Parse(text)?.AsObject() ?? new JsonObject();
+        lock (_fileLock)
+        {
+            try
+            {
+                if (!File.Exists(_settingsPath))
+                    return new JsonObject();
+                var text = File.ReadAllText(_settingsPath);
+                if (string.IsNullOrWhiteSpace(text))
+                    return new JsonObject();
+                return JsonNode.Parse(text)?.AsObject() ?? new JsonObject();
+            }
+            catch (Exception ex) when (ex is IOException or JsonException)
+            {
+                // File sedang ditulis proses lain / rusak sementara -> jangan
+                // sampai melempar (bisa mematikan sirkuit). Anggap kosong.
+                return new JsonObject();
+            }
+        }
     }
 
     private void WriteRoot(JsonObject root)
     {
-        File.WriteAllText(_settingsPath, root.ToJsonString(_jsonOpts));
+        // Lock men-serialkan tulis vs baca dalam proses, jadi cukup tulis biasa
+        // (File.Replace bisa melempar bila file sempat dipegang handle lain).
+        lock (_fileLock)
+        {
+            File.WriteAllText(_settingsPath, root.ToJsonString(_jsonOpts));
+        }
     }
 
     private static JsonArray EnsureArray(JsonObject root)

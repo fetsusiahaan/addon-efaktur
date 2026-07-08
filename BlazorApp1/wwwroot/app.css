@@ -2,6 +2,17 @@ html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
+/* Perkecil tampilan seluruh halaman ke 90% (mirip Zoom di browser).
+   Elemen full-height memakai calc(100vh / var(--app-zoom)) agar tetap
+   memenuhi layar meski di-zoom. */
+:root {
+    --app-zoom: 0.9;
+}
+
+body {
+    zoom: var(--app-zoom);
+}
+
 a, .btn-link {
     color: #006bb7;
 }

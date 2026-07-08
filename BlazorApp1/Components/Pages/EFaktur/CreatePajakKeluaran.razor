@@ -31,7 +31,7 @@
                         <select class="form-select" @bind="searchBy">
                             <option>Invoice Number</option>
                             <option>Date</option>
-                            <option>Vendor</option>
+                            <option>Customer</option>
                         </select>
                     </div>
                     <div class="col-md-6">
@@ -71,7 +71,7 @@
                             </div>
                         </div>
                     }
-                    else if (searchBy == "Vendor")
+                    else if (searchBy == "Customer")
                     {
                         <div class="col-md-6">
                             <label class="ef-label">From Customer <span class="text-danger">*</span></label>
@@ -211,7 +211,7 @@
 </div>
 
 @code {
-    private string searchBy = "Vendor";
+    private string searchBy = "Customer";
     private bool dtInvoice = true;
     private bool dtDownPayment = true;
     private bool dtRefCreditMemo = true;
@@ -276,7 +276,7 @@
         {
             "Invoice Number" => (invFrom, invTo),
             "Date"           => (fromDate, toDate),
-            "Vendor"         => (custFrom, custTo),
+            "Customer"       => (custFrom, custTo),
             _                => (invFrom, invTo),
         };
         if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(to))
@@ -309,7 +309,9 @@
             RefCreditMemo = dtRefCreditMemo,
         };
 
-        result = await FpService.LoadAsync(filter);
+        // Jalankan di thread pool agar driver DB yang memblokir tidak
+        // membekukan UI/Nav Menu selama menunggu hasil SP.
+        result = await Task.Run(() => FpService.LoadAsync(filter));
 
         if (result?.Error is null && result is not null)
         {

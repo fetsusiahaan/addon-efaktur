@@ -19,6 +19,27 @@
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
     <script>
+        // Toggle sidebar + simpan state (localStorage) agar konsisten di semua halaman.
+        window.toggleSidebar = () => {
+            const on = document.documentElement.classList.toggle('sidebar-hidden');
+            try { localStorage.setItem('sidebarHidden', on ? '1' : '0'); } catch (e) { }
+        };
+        (function () {
+            function applySidebar() {
+                let hidden = false;
+                try { hidden = localStorage.getItem('sidebarHidden') === '1'; } catch (e) { }
+                document.documentElement.classList.toggle('sidebar-hidden', hidden);
+            }
+            applySidebar();
+            // Terapkan ulang setelah navigasi (enhanced load) & saat halaman siap.
+            window.addEventListener('load', function () {
+                applySidebar();
+                if (window.Blazor && Blazor.addEventListener) {
+                    try { Blazor.addEventListener('enhancedload', applySidebar); } catch (e) { }
+                }
+            });
+        })();
+
         window.togglePwd = (btn) => {
             const input = btn.parentElement.querySelector('input');
             const icon = btn.querySelector('i');

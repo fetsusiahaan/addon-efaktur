@@ -1,19 +1,16 @@
 ﻿@inherits LayoutComponentBase
 
 <div class="page">
-    @* Toggle sidebar murni CSS (checkbox tersembunyi + label hamburger). *@
-    <input type="checkbox" id="sbToggle" class="sb-toggle-checkbox" aria-hidden="true" />
-
     <div class="sidebar">
         <NavMenu />
     </div>
 
     <main>
         <div class="top-row px-4">
-            <label class="sidebar-toggle" for="sbToggle"
-                   title="Sembunyikan / tampilkan menu" aria-label="Toggle menu">
+            <button type="button" class="sidebar-toggle" onclick="toggleSidebar()"
+                    title="Sembunyikan / tampilkan menu" aria-label="Toggle menu">
                 <i class="bi bi-list"></i>
-            </label>
+            </button>
 
             <DbStatus />
 

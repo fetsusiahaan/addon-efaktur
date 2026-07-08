@@ -21,12 +21,7 @@ article.content {
     transition: width .2s ease;
 }
 
-/* Checkbox tersembunyi pengendali visibilitas sidebar */
-.sb-toggle-checkbox {
-    display: none;
-}
-
-/* Tombol (label) hamburger untuk sembunyikan/tampilkan sidebar */
+/* Tombol hamburger untuk sembunyikan/tampilkan sidebar */
 .sidebar-toggle {
     margin-right: auto;              /* dorong ke kiri; sisanya tetap di kanan */
     background: #fff;
@@ -48,11 +43,12 @@ article.content {
     border-color: #b9c0c9;
 }
 
-/* Saat checkbox tercentang -> sidebar menyusut jadi 0 (main melebar penuh).
+/* Saat html.sidebar-hidden -> sidebar menyusut jadi 0 (main melebar penuh).
+   State disimpan di localStorage (JS) sehingga konsisten di semua halaman.
    Hanya di desktop; di mobile sidebar sudah punya toggler sendiri.
    Pakai width/min-width 0 (bukan margin negatif, agar konten tidak tergeser). */
 @media (min-width: 641px) {
-    .sb-toggle-checkbox:checked ~ .sidebar {
+    html.sidebar-hidden .sidebar {
         width: 0;
         min-width: 0;
         overflow: hidden;
@@ -174,21 +170,34 @@ article.content {
 }
 
 @media (min-width: 641px) {
+    /* Viewport tetap + scroll internal (pola AdminLTE). Menghindari
+       position:sticky yang bentrok dengan CSS zoom (klik jadi meleset). */
     .page {
         flex-direction: row;
+        height: calc(100vh / var(--app-zoom, 1));
+        overflow: hidden;
     }
 
     .sidebar {
         width: 250px;
-        height: 100vh;
-        position: sticky;
-        top: 0;
+        height: 100%;
+        overflow-y: auto;
+    }
+
+    main {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
     }
 
     .top-row {
-        position: sticky;
-        top: 0;
-        z-index: 1;
+        flex-shrink: 0;      /* tetap di atas, tidak ikut scroll */
+    }
+
+    article.content {
+        flex: 1;
+        overflow-y: auto;    /* area konten yang men-scroll */
     }
 
     .top-row.auth ::deep a:first-child {

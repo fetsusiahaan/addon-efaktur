@@ -118,7 +118,8 @@
 
 @code {
     private bool _showFilter;
-    private bool loading;
+    private bool loading = true;                                     // tampilkan spinner sejak awal
+    private bool _loaded;
     private readonly Dictionary<int, string> _colFilters = new();   // filter per kolom (index -> teks)
     private int _sortCol = -1;                                       // kolom yang diurutkan (-1 = tidak ada)
     private bool _sortAsc = true;
@@ -134,7 +135,16 @@
     private const string Sql =
         @"SELECT * FROM ""OINV"" LIMIT 100 OFFSET 100";
 
-    protected override async Task OnInitializedAsync() => await LoadData();
+    // Muat data SETELAH render pertama (di circuit), bukan saat prerender,
+    // agar halaman tampil cepat dan tidak menunggu query DB.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_loaded)
+        {
+            _loaded = true;
+            await LoadData();
+        }
+    }
 
     private async Task LoadData()
     {
@@ -151,7 +161,9 @@
         StateHasChanged();
         await Task.Yield();
 
-        result = await QuerySvc.RunQueryAsync(Sql);
+        // Query dijalankan di thread pool agar driver DB yang memblokir tidak
+        // membekukan UI/Nav Menu selama menunggu.
+        result = await Task.Run(() => QuerySvc.RunQueryAsync(Sql));
 
         if (result?.Error is null && result is not null)
         {
@@ -177,6 +189,9 @@
         }
 
         loading = false;
+        // Wajib: OnAfterRenderAsync tidak otomatis re-render setelah await,
+        // jadi picu render manual agar spinner hilang & data tampil.
+        await InvokeAsync(StateHasChanged);
     }
 
     // Baris terfilter: setiap kolom yang punya teks filter harus cocok (AND antar kolom).

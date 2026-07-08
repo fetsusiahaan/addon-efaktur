@@ -46,9 +46,17 @@
 
     private async Task CheckAndRenderAsync()
     {
-        await CheckAsync();
-        NotifyOnChange();
-        await InvokeAsync(StateHasChanged);
+        try
+        {
+            await CheckAsync();
+            NotifyOnChange();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            // Error saat polling tidak boleh mematikan sirkuit (semua menu jadi
+            // tak bisa diklik). Biarkan status apa adanya; tick berikutnya coba lagi.
+        }
     }
 
     // Munculkan toast hanya saat status BERUBAH (tidak spam tiap tick).
@@ -106,7 +114,9 @@
             return;
         }
 
-        var (ok, err) = await DbMgr.TestAsync(active, TimeSpan.FromSeconds(5));
+        // Jalankan uji koneksi di thread pool (bukan di dispatcher sirkuit) agar
+        // driver DB yang memblokir tidak membekukan UI/Nav Menu selama menunggu.
+        var (ok, err) = await Task.Run(() => DbMgr.TestAsync(active, TimeSpan.FromSeconds(5)));
         if (ok)
         {
             _state = St.Connected;

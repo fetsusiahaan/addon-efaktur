@@ -343,56 +343,85 @@
     private void SaveEntry()
     {
         if (_form is null || !Validate()) return;
-        _saving = true;
-        DbMgr.Save(_form);
-        Reload();
-        _saving = false;
-        _selected = _list.FirstOrDefault(x => x.Id == _form.Id);
-        _isNew = false;
-        ResetTest();
+        try
+        {
+            _saving = true;
+            DbMgr.Save(_form);
+            Reload();
+            _selected = _list.FirstOrDefault(x => x.Id == _form.Id);
+            _isNew = false;
+            ResetTest();
+            ShowInfo(true, "Koneksi tersimpan.");
+        }
+        catch (Exception ex) { ShowInfo(false, $"Gagal menyimpan: {ex.Message}"); }
+        finally { _saving = false; }
     }
 
     private void DeleteEntry()
     {
         if (_form is null) return;
-        DbMgr.Delete(_form.Id);
-        Reload();
-        Cancel();
+        try
+        {
+            DbMgr.Delete(_form.Id);
+            Reload();
+            Cancel();
+        }
+        catch (Exception ex) { ShowInfo(false, $"Gagal menghapus: {ex.Message}"); }
     }
 
     private void SetAktif()
     {
         if (_form is null) return;
-        DbMgr.SetActive(_form.Id);
-        _form.IsActive = true;
-        Reload();
-        // Sync selected
-        _selected = _list.FirstOrDefault(x => x.Id == _form.Id);
+        try
+        {
+            DbMgr.SetActive(_form.Id);
+            _form.IsActive = true;
+            Reload();
+            _selected = _list.FirstOrDefault(x => x.Id == _form.Id);
+            ShowInfo(true, "Koneksi diaktifkan.");
+        }
+        catch (Exception ex) { ShowInfo(false, $"Gagal mengaktifkan: {ex.Message}"); }
     }
+
+    // Tampilkan notifikasi di banner atas (dipakai oleh aksi form).
+    private void ShowInfo(bool ok, string msg) { _importOk = ok; _importMsg = msg; }
 
     private async Task TestKoneksi()
     {
         if (_form is null || !Validate()) return;
         _testing = true;
         _testMsg = null;
-        await Task.Yield();
-        var (ok, err) = await DbMgr.TestAsync(_form);
-        _testOk = ok;
-        _tested = true;
-        _testMsg = ok ? "OK" : err;
-        _testing = false;
+        try
+        {
+            await Task.Yield();
+            var (ok, err) = await DbMgr.TestAsync(_form);
+            _testOk = ok;
+            _tested = true;
+            _testMsg = ok ? "OK" : err;
+        }
+        catch (Exception ex)
+        {
+            _testOk = false;
+            _tested = true;
+            _testMsg = ex.Message;
+        }
+        finally { _testing = false; }
     }
 
     // ── Export / Import ───────────────────────────────────────────────────────
     private async Task ExportJson()
     {
-        var json = DbMgr.Export();
-        var bytes = System.Text.Encoding.UTF8.GetBytes(json);
-        var b64 = Convert.ToBase64String(bytes);
-        var filename = $"db-connections-{DateTime.Now:yyyyMMddHHmm}.json";
-        await JS.InvokeVoidAsync("eval",
-            $"const a=document.createElement('a');a.href='data:application/json;base64,{b64}';" +
-            $"a.download='{filename}';document.body.appendChild(a);a.click();a.remove();");
+        try
+        {
+            var json = DbMgr.Export();
+            var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+            var b64 = Convert.ToBase64String(bytes);
+            var filename = $"db-connections-{DateTime.Now:yyyyMMddHHmm}.json";
+            await JS.InvokeVoidAsync("eval",
+                $"const a=document.createElement('a');a.href='data:application/json;base64,{b64}';" +
+                $"a.download='{filename}';document.body.appendChild(a);a.click();a.remove();");
+        }
+        catch (Exception ex) { ShowInfo(false, $"Gagal export: {ex.Message}"); }
     }
 
     private async Task ImportJson(InputFileChangeEventArgs e)
