@@ -21,6 +21,85 @@
     overflow: hidden;
 }
 
+/* ── Samakan tampilan grid dengan halaman Daftar Pajak Keluaran ── */
+.ef-page .ef-grid .dpk-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background: #eef4fb;
+    border-bottom: 1px solid var(--ef-border);
+    padding: .75rem 1rem;
+}
+
+.ef-page .ef-grid .dpk-card-title {
+    font-weight: 700;
+    color: #1f2d3d;
+}
+
+.ef-page .ef-grid .dpk-card-tools {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+.ef-page .dpk-filter-btn {
+    background: #fff;
+    border: 1px solid var(--ef-border);
+    color: #475467;
+    font-size: .85rem;
+    padding: .35rem .8rem;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.ef-page .dpk-filter-btn:hover {
+    background: #f4f6f8;
+}
+
+.ef-page .dpk-filter-btn.active {
+    background: var(--ef-navy);
+    color: #fff;
+    border-color: var(--ef-navy);
+}
+
+/* Header grid biru muda + judul kolom kapital abu-abu */
+.ef-page .dpk-grid {
+    --rz-grid-header-background-color: #eef4fb;
+    --rz-grid-header-color: #64748b;
+    border: none;
+}
+
+.ef-page .ef-grid ::deep .rz-grid-table thead th .rz-column-title-content {
+    text-transform: uppercase;
+    font-size: .72rem;
+    letter-spacing: .03em;
+    font-weight: 600;
+    color: #64748b;
+}
+
+/* Sel satu baris + ellipsis */
+.ef-page .ef-grid ::deep .rz-data-grid-data .rz-cell-data {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+/* Pager: halaman aktif navy */
+.ef-page .ef-grid ::deep .rz-paginator .rz-paginator-page.rz-state-active {
+    background: var(--ef-navy);
+    border-color: var(--ef-navy);
+    color: #fff;
+}
+
+.ef-page .ef-grid ::deep .rz-paginator {
+    background: #fff;
+    border: none;
+    padding: .5rem 1rem;
+}
+
 /* Batasi grid agar tidak melebihi lebar kartunya; scroll horizontal
    ditangani area data internal Radzen (.rz-data-grid-data = overflow:auto),
    sehingga yang men-scroll adalah grid, bukan seluruh halaman. */

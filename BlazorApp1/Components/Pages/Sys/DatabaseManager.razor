@@ -141,15 +141,27 @@
                         </div>
                     </div>
 
-                    @* Baris 2: Provider (read-only, otomatis) *@
+                    @* Baris 2: Provider (read-only, otomatis) + Schema (dideteksi dari conn string) *@
                     <div class="row g-3 mb-4">
-                        <div class="col-12">
+                        <div class="col-md-6">
                             <div class="dbm-field dbm-field--readonly">
                                 <fieldset>
                                     <legend>providerName (otomatis)</legend>
                                     <input class="form-control dbm-ctrl" value="@_form.ProviderName" readonly />
                                 </fieldset>
                                 <div class="dbm-hint">Terisi otomatis sesuai Jenis Database</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="dbm-field dbm-field--readonly">
+                                <fieldset>
+                                    <legend>schema (otomatis)</legend>
+                                    <input class="form-control dbm-ctrl"
+                                           value="@(string.IsNullOrEmpty(_form.Schema) ? "—" : _form.Schema)" readonly />
+                                </fieldset>
+                                <div class="dbm-hint">
+                                    Dideteksi dari @(_form.JenisDb == "SAP HANA Database" ? "\"Current Schema\"" : "\"Database\"") pada connection string
+                                </div>
                             </div>
                         </div>
                     </div>

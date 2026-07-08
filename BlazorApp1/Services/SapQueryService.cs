@@ -155,7 +155,7 @@ public class SapQueryService
         "order", "by", "group", "having", "join", "inner", "left", "right", "outer", "full",
         "cross", "on", "as", "asc", "desc", "distinct", "top", "union", "all", "case", "when",
         "then", "else", "end", "exists", "into", "values", "limit", "offset", "with", "over",
-        "partition", "true", "false", "escape",
+        "partition", "true", "false", "escape", "call", "exec", "execute",
     };
 
     /// <summary>

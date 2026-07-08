@@ -4,7 +4,7 @@
 @using BlazorApp1.Models
 @using BlazorApp1.Services
 @using Radzen.Blazor
-@inject SapQueryService QuerySvc
+@inject PajakKeluaranService FpService
 @inject NavigationManager Nav
 
 <PageTitle>Buat Pajak Keluaran</PageTitle>
@@ -42,18 +42,18 @@
                     @if (searchBy == "Invoice Number")
                     {
                         <div class="col-md-6">
-                            <label class="ef-label">From Number</label>
-                            <input class="form-control" placeholder="Start number..." />
+                            <label class="ef-label">From Number <span class="text-danger">*</span></label>
+                            <input class="form-control" placeholder="Start number..." @bind="invFrom" />
                         </div>
                         <div class="col-md-6">
-                            <label class="ef-label">To Number</label>
-                            <input class="form-control" placeholder="End number..." />
+                            <label class="ef-label">To Number <span class="text-danger">*</span></label>
+                            <input class="form-control" placeholder="End number..." @bind="invTo" />
                         </div>
                     }
                     else if (searchBy == "Date")
                     {
                         <div class="col-md-6">
-                            <label class="ef-label">From Date</label>
+                            <label class="ef-label">From Date <span class="text-danger">*</span></label>
                             <div class="ef-date-field">
                                 <input class="form-control" placeholder="dd.mm.yy" maxlength="8" inputmode="numeric"
                                        value="@fromDate" @oninput="e => fromDate = FormatDateMask(e.Value?.ToString())" />
@@ -62,7 +62,7 @@
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="ef-label">To Date</label>
+                            <label class="ef-label">To Date <span class="text-danger">*</span></label>
                             <div class="ef-date-field">
                                 <input class="form-control" placeholder="dd.mm.yy" maxlength="8" inputmode="numeric"
                                        value="@toDate" @oninput="e => toDate = FormatDateMask(e.Value?.ToString())" />
@@ -74,12 +74,12 @@
                     else if (searchBy == "Vendor")
                     {
                         <div class="col-md-6">
-                            <label class="ef-label">From Customer</label>
-                            <input class="form-control" placeholder="Start identifier..." />
+                            <label class="ef-label">From Customer <span class="text-danger">*</span></label>
+                            <input class="form-control" placeholder="Start identifier..." @bind="custFrom" />
                         </div>
                         <div class="col-md-6">
-                            <label class="ef-label">To Customer</label>
-                            <input class="form-control" placeholder="End identifier..." />
+                            <label class="ef-label">To Customer <span class="text-danger">*</span></label>
+                            <input class="form-control" placeholder="End identifier..." @bind="custTo" />
                         </div>
                     }
 
@@ -117,6 +117,13 @@
             </div>
 
         </div>
+
+        @if (_validationError is not null)
+        {
+            <div class="alert alert-warning py-2 mb-0 mt-3">
+                <i class="bi bi-exclamation-triangle me-1"></i>@_validationError
+            </div>
+        }
     </div>
 
     @* ---------- Grid data (dinamis dari hasil query) ---------- *@
@@ -137,25 +144,46 @@
         }
         else if (result is not null)
         {
-            <RadzenDataGrid Data="@_rows" TItem="PajakKeluaranRow"
-                            AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="false"
-                            AllowSorting="true" AllowPaging="true" PageSize="10"
-                            PagerHorizontalAlign="Radzen.HorizontalAlign.Left" ShowPagingSummary="true"
-                            FilterMode="Radzen.FilterMode.Simple" FilterCaseSensitivity="Radzen.FilterCaseSensitivity.CaseInsensitive"
-                            LogicalFilterOperator="Radzen.LogicalFilterOperator.Or"
-                            SelectionMode="Radzen.DataGridSelectionMode.Single" @bind-Value="_selected"
-                            AllowColumnPicking="true"
-                            Density="Radzen.Density.Compact" GridLines="Radzen.DataGridGridLines.Both"
-                            Style="height: 60vh; --rz-grid-header-background-color: #123a5c; --rz-grid-header-color: #fff;">
+            <div class="dpk-card-head">
+                <span class="dpk-card-title">Hasil Faktur Pajak Keluaran</span>
+                <div class="dpk-card-tools">
+                    <button type="button" class="dpk-filter-btn @(_showFilter ? "active" : "")"
+                            @onclick="() => _showFilter = !_showFilter">
+                        <i class="bi bi-funnel me-1"></i> Filter
+                    </button>
+                    <button type="button" class="dpk-filter-btn" @onclick="LoadData" disabled="@loading" title="Muat ulang">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
+            </div>
+
+            <RadzenDataGrid Data="@_rows" TItem="FakturKeluaranRow"
+                            AllowFiltering="@_showFilter" FilterMode="Radzen.FilterMode.Simple"
+                            FilterCaseSensitivity="Radzen.FilterCaseSensitivity.CaseInsensitive"
+                            AllowSorting="true" AllowColumnResize="true"
+                            AllowAlternatingRows="true" AllowPaging="true" PageSize="10"
+                            PagerPosition="Radzen.PagerPosition.Top" PagerHorizontalAlign="Radzen.HorizontalAlign.Right"
+                            ShowPagingSummary="true" PagingSummaryFormat="Halaman {0} dari {1} ({2} data)"
+                            Density="Radzen.Density.Compact" GridLines="Radzen.DataGridGridLines.Horizontal"
+                            EmptyText="Tidak ada data." class="dpk-grid"
+                            Style="height: 60vh;">
                 <Columns>
-                    <RadzenDataGridColumn TItem="PajakKeluaranRow" Property="DocEntry" Title="DocEntry"
-                                          Width="110px" TextAlign="Radzen.TextAlign.Right" />
-                    <RadzenDataGridColumn TItem="PajakKeluaranRow" Property="CardCode" Title="CardCode" Width="120px" />
-                    <RadzenDataGridColumn TItem="PajakKeluaranRow" Property="CardName" Title="CardName" Width="220px" />
-                    <RadzenDataGridColumn TItem="PajakKeluaranRow" Property="NumAtCard" Title="NumAtCard" Width="160px" />
-                    <RadzenDataGridColumn TItem="PajakKeluaranRow" Property="DocTotalFC" Title="DocTotalFC"
-                                          Width="150px" TextAlign="Radzen.TextAlign.Right" FormatString="{0:#,##0.00}" />
-                    <RadzenDataGridColumn TItem="PajakKeluaranRow" Property="Address" Title="Address" Width="360px" />
+                    <RadzenDataGridColumn TItem="FakturKeluaranRow" Title="#" Width="46px" Sortable="false" Filterable="false"
+                                          TextAlign="Radzen.TextAlign.Center">
+                        <Template Context="row">
+                            <input type="checkbox" checked="@_selected.Contains(row)"
+                                   @onchange="e => ToggleRow(row, (bool)(e.Value ?? false))" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    @* Kolom dibangkitkan dinamis dari FakturKeluaranRow.Columns
+                       (Title dari model, Width menyesuaikan data). *@
+                    @foreach (var c in FakturKeluaranRow.Columns)
+                    {
+                        <RadzenDataGridColumn TItem="FakturKeluaranRow" Property="@c.Property" Title="@c.Title"
+                                              Width="@WidthOf(c.Property)" Visible="@c.Visible"
+                                              TextAlign="@(c.Kind is ColKind.Number or ColKind.Money ? Radzen.TextAlign.Right : Radzen.TextAlign.Left)"
+                                              FormatString="@FormatOf(c.Kind)" />
+                    }
                 </Columns>
             </RadzenDataGrid>
         }
@@ -188,10 +216,26 @@
     private bool dtDownPayment = true;
     private bool dtRefCreditMemo = true;
 
+    // Isian From/To per jenis Search By.
+    private string invFrom = "";      // Invoice Number
+    private string invTo = "";
+    private string custFrom = "";     // Vendor / Customer
+    private string custTo = "";
+
     private bool loading;
+    private bool _showFilter;
+    private string? _validationError;
     private QueryResult? result;
-    private List<PajakKeluaranRow> _rows = new();
-    private IList<PajakKeluaranRow>? _selected;
+
+    // Hasil SP dipetakan ke model bertipe.
+    private List<FakturKeluaranRow> _rows = new();
+
+    // Baris tercentang.
+    private readonly HashSet<FakturKeluaranRow> _selected = new();
+    private void ToggleRow(FakturKeluaranRow row, bool value)
+    {
+        if (value) _selected.Add(row); else _selected.Remove(row);
+    }
 
     // Filter tanggal (format dd.MM.yy), diisi via input bermask.
     private string fromDate = "";
@@ -225,44 +269,144 @@
         return "";
     }
 
-    // === Query dari Query Manager (ganti sesuai kebutuhan) ===
-    // Ditulis polos; SapQueryService yang menyesuaikan dialek per jenis DB.
-    private const string Sql = "SELECT DocEntry,CardName,CardCode,DocTotalFC, NumAtCard,Address FROM OINV";
-
     private async Task LoadData()
     {
+        // From & To wajib diisi (sesuai jenis Search By).
+        var (from, to) = searchBy switch
+        {
+            "Invoice Number" => (invFrom, invTo),
+            "Date"           => (fromDate, toDate),
+            "Vendor"         => (custFrom, custTo),
+            _                => (invFrom, invTo),
+        };
+        if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(to))
+        {
+            _validationError = "Field From dan To wajib diisi.";
+            result = null;
+            _rows = new();
+            _selected.Clear();
+            return;
+        }
+        _validationError = null;
+
         loading = true;
         result = null;
         _rows = new();
-        _selected = null;
+        _selected.Clear();
         await Task.Yield();
-        result = await QuerySvc.RunQueryAsync(Sql);
+
+        var filter = new PajakKeluaranFilter
+        {
+            SearchBy      = searchBy,
+            InvoiceFrom   = invFrom,
+            InvoiceTo     = invTo,
+            DateFrom      = fromDate,
+            DateTo        = toDate,
+            CustomerFrom  = custFrom,
+            CustomerTo    = custTo,
+            Invoice       = dtInvoice,
+            DownPayment   = dtDownPayment,
+            RefCreditMemo = dtRefCreditMemo,
+        };
+
+        result = await FpService.LoadAsync(filter);
+
         if (result?.Error is null && result is not null)
+        {
             _rows = MapRows(result);
+            ComputeWidths();
+        }
+
         loading = false;
     }
 
-    // Petakan hasil query dinamis ke model bertipe (berdasar nama kolom,
-    // case-insensitive) agar RadzenDataGrid bisa sorting/filtering native.
-    private static List<PajakKeluaranRow> MapRows(QueryResult r)
+    // ── Lebar kolom otomatis (fit isi) ────────────────────────────────────────
+    private readonly Dictionary<string, int> _colWidths = new();
+
+    private static readonly Dictionary<string, System.Reflection.PropertyInfo> _props =
+        typeof(FakturKeluaranRow).GetProperties()
+            .ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);
+
+    private void ComputeWidths()
+    {
+        _colWidths.Clear();
+        foreach (var c in FakturKeluaranRow.Columns)
+        {
+            if (!c.Visible) continue;
+            _props.TryGetValue(c.Property, out var pi);
+            var maxData = (pi is null || _rows.Count == 0)
+                ? 0
+                : _rows.Max(r => FormatVal(pi.GetValue(r), c.Kind).Length);
+            var chars = Math.Max(c.Title.Length + 2, maxData);
+            _colWidths[c.Property] = Math.Clamp(chars * 8 + 26, 90, 320);
+        }
+    }
+
+    private string WidthOf(string prop) => (_colWidths.TryGetValue(prop, out var w) ? w : 140) + "px";
+
+    private static string? FormatOf(ColKind kind) => kind switch
+    {
+        ColKind.Money => "{0:#,##0.00}",
+        ColKind.Date  => "{0:dd.MM.yyyy}",
+        _             => null,
+    };
+
+    // Nilai terformat (sesuai FormatOf) untuk mengukur panjang teks kolom.
+    private static string FormatVal(object? v, ColKind kind) => v switch
+    {
+        null => "",
+        DateTime dt when kind == ColKind.Date => dt.ToString("dd.MM.yyyy"),
+        decimal d when kind == ColKind.Money => d.ToString("#,##0.00"),
+        _ => v.ToString() ?? "",
+    };
+
+    // Petakan hasil SP (kolom dinamis) ke model bertipe berdasar nama kolom.
+    private static List<FakturKeluaranRow> MapRows(QueryResult r)
     {
         var idx = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < r.Columns.Count; i++) idx[r.Columns[i]] = i;
+        for (var i = 0; i < r.Columns.Count; i++) idx[r.Columns[i]] = i;
 
-        object? Get(object?[] row, string col) =>
-            idx.TryGetValue(col, out var i) ? row[i] : null;
+        object? Get(object?[] row, string col) => idx.TryGetValue(col, out var i) && i < row.Length ? row[i] : null;
+        string? Str(object?[] row, string col) => Get(row, col)?.ToString();
+        int Int(object?[] row, string col) => Get(row, col) is { } v ? Convert.ToInt32(v) : 0;
+        decimal Dec(object?[] row, string col) => Get(row, col) is { } v ? Convert.ToDecimal(v) : 0m;
+        DateTime? Date(object?[] row, string col) => Get(row, col) switch
+        {
+            DateTime dt => dt,
+            { } v when DateTime.TryParse(v.ToString(), out var d) => d,
+            _ => null,
+        };
 
-        var list = new List<PajakKeluaranRow>(r.Rows.Count);
+        var list = new List<FakturKeluaranRow>(r.Rows.Count);
         foreach (var row in r.Rows)
         {
-            list.Add(new PajakKeluaranRow
+            list.Add(new FakturKeluaranRow
             {
-                DocEntry   = Get(row, "DocEntry") is { } de ? Convert.ToInt32(de) : 0,
-                CardCode   = Get(row, "CardCode")?.ToString(),
-                CardName   = Get(row, "CardName")?.ToString(),
-                NumAtCard  = Get(row, "NumAtCard")?.ToString(),
-                DocTotalFC = Get(row, "DocTotalFC") is { } dt ? Convert.ToDecimal(dt) : 0m,
-                Address    = Get(row, "Address")?.ToString(),
+                DocEntry   = Int(row, "DocEntry"),
+                DocNum     = Int(row, "DocNum"),
+                DocDate    = Date(row, "DocDate"),
+                CardEntry  = Int(row, "CardEntry"),
+                CardCode   = Str(row, "CardCode"),
+                CardName   = Str(row, "CardName"),
+                DocTotal   = Dec(row, "DocTotal"),
+                VatSum     = Dec(row, "VatSum"),
+                ObjType    = Int(row, "ObjType"),
+                ObjName    = Str(row, "ObjName"),
+                NoFP       = Str(row, "NoFP"),
+                Status     = Str(row, "Status"),
+                Pengganti  = Str(row, "Pengganti"),
+                KetTambah  = Str(row, "KetTambah"),
+                Referensi  = Str(row, "Referensi"),
+                JenisPajak = Str(row, "JenisPajak"),
+                NamaNPWP   = Str(row, "NamaNPWP"),
+                AlamatNPWP = Str(row, "AlamatNPWP"),
+                NPWP       = Str(row, "NPWP"),
+                Discount   = Dec(row, "Discount"),
+                DP         = Dec(row, "DP"),
+                JDP        = Str(row, "JDP"),
+                NIK        = Str(row, "NIK"),
+                KDP        = Str(row, "KDP"),
+                RatePajak  = Str(row, "RatePajak"),
             });
         }
         return list;

@@ -58,7 +58,7 @@
                             ShowPagingSummary="true" PagingSummaryFormat="Halaman {0} dari {1} ({2} data)"
                             Density="Radzen.Density.Compact" GridLines="Radzen.DataGridGridLines.Horizontal"
                             EmptyText="Tidak ada data."
-                            class="dpk-grid">
+                            class="dpk-grid" Style="height: 60vh;">
                 <Columns>
                     @* Kolom aksi *@
                     <RadzenDataGridColumn TItem="object[]" Title="#" Width="58px"
@@ -131,7 +131,8 @@
     private int _docEntryIndex = -1;
 
     // Query sama dengan halaman Buat Pajak Keluaran (SapQueryService menyesuaikan dialek DB).
-    private const string Sql = "SELECT DocEntry,CardName,CardCode,DocTotalFC, NumAtCard,Address FROM OINV";
+    private const string Sql =
+        @"SELECT * FROM ""OINV"" LIMIT 100 OFFSET 100";
 
     protected override async Task OnInitializedAsync() => await LoadData();
 
