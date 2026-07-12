@@ -29,6 +29,7 @@ artifacts/
 .env
 .env.*
 **/ConnectDBAccess.json
+**/WebDbConfig.json
 appsettings.*.Local.json
 secrets.json
 *.pfx

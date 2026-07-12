@@ -4,7 +4,7 @@
 @using BlazorApp1.Models
 @using BlazorApp1.Services
 @using Radzen.Blazor
-@inject SapQueryService QuerySvc
+@inject WebDbService WebDb
 @inject NavigationManager Nav
 
 <PageTitle>Daftar Pajak Keluaran</PageTitle>
@@ -131,9 +131,9 @@
     private readonly List<int> _colWidths = new();                  // lebar tetap per kolom (px), fit isi
     private int _docEntryIndex = -1;
 
-    // Query sama dengan halaman Buat Pajak Keluaran (SapQueryService menyesuaikan dialek DB).
+    // Daftar transaksi Pajak Keluaran tersimpan (dari SAP_WEB, header yang belum dibatalkan).
     private const string Sql =
-        @"SELECT * FROM ""OINV"" LIMIT 100 OFFSET 100";
+        "SELECT DocEntry, DocNum, CreateDate, U_Format FROM IDU_PAJAK_TRANS WHERE Canceled = 'N'";
 
     // Muat data SETELAH render pertama (di circuit), bukan saat prerender,
     // agar halaman tampil cepat dan tidak menunggu query DB.
@@ -163,7 +163,7 @@
 
         // Query dijalankan di thread pool agar driver DB yang memblokir tidak
         // membekukan UI/Nav Menu selama menunggu.
-        result = await Task.Run(() => QuerySvc.RunQueryAsync(Sql));
+        result = await Task.Run(() => WebDb.RunQueryAsync(Sql));
 
         if (result?.Error is null && result is not null)
         {
@@ -263,9 +263,8 @@
     private void OpenDoc(object[] row)
     {
         var doc = _docEntryIndex >= 0 && row.Length > _docEntryIndex ? row[_docEntryIndex] : null;
-        Nav.NavigateTo(doc is null
-            ? "/efaktur/create-pajak-keluaran"
-            : $"/efaktur/create-pajak-keluaran?doc={doc}");
+        if (doc is not null)
+            Nav.NavigateTo($"/efaktur/show-pajak-keluaran?doc={doc}");
     }
 
     // Lebar tetap kolom (hasil hitung fit-isi di LoadData).

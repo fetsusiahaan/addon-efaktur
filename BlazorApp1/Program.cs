@@ -21,6 +21,7 @@ builder.Services.AddRazorComponents()
 builder.Services.AddRadzenComponents();
 builder.Services.AddScoped<SapQueryService>();
 builder.Services.AddScoped<PajakKeluaranService>();
+builder.Services.AddScoped<WebDbService>();
 builder.Services.AddScoped<DbManagerService>();
 builder.Services.AddScoped<UserService>();
 

@@ -5,8 +5,10 @@
 @using BlazorApp1.Services
 @using Radzen.Blazor
 @inject PajakKeluaranService FpService
+@inject WebDbService WebDb
 @inject NavigationManager Nav
 @inject Radzen.DialogService DialogService
+@inject Radzen.NotificationService Notifications
 
 <PageTitle>Buat Pajak Keluaran</PageTitle>
 
@@ -190,8 +192,13 @@
                             EmptyText="Tidak ada data." class="dpk-grid"
                             Style="height: 60vh;">
                 <Columns>
-                    <RadzenDataGridColumn TItem="FakturKeluaranRow" Title="#" Width="46px" Sortable="false" Filterable="false"
+                    <RadzenDataGridColumn TItem="FakturKeluaranRow" Width="46px" Sortable="false" Filterable="false"
                                           TextAlign="Radzen.TextAlign.Center">
+                        <HeaderTemplate>
+                            <input type="checkbox" title="Pilih semua"
+                                   checked="@AllSelected"
+                                   @onchange="e => ToggleAll((bool)(e.Value ?? false))" />
+                        </HeaderTemplate>
                         <Template Context="row">
                             <input type="checkbox" checked="@_selected.Contains(row)"
                                    @onchange="e => ToggleRow(row, (bool)(e.Value ?? false))" />
@@ -221,7 +228,9 @@
     @* ---------- Bar Aksi ---------- *@
     <div class="ef-actionbar">
         <div class="d-flex gap-2">
-            <button type="button" class="btn ef-btn-primary"><i class="bi bi-plus-lg me-1"></i> Add</button>
+            <button type="button" class="btn ef-btn-primary" @onclick="AddData" disabled="@_saving">
+                <i class="bi bi-plus-lg me-1"></i> Add
+            </button>
             <button type="button" class="btn ef-btn-secondary">Cancel</button>
         </div>
         <div class="d-flex gap-2">
@@ -236,6 +245,7 @@
     private string searchBy = "Customer";
     private string docNumber = "";     // No. Faktur hasil SP generator
     private bool _noFakturLoaded;
+    private bool _saving;              // proses Add ke SAP_WEB
     private bool dtInvoice = true;
     private bool dtDownPayment = true;
     private bool dtRefCreditMemo = true;
@@ -267,6 +277,14 @@
         if (value) _selected.Add(row); else _selected.Remove(row);
     }
 
+    // Ceklis header = pilih/hapus semua baris.
+    private bool AllSelected => _rows.Count > 0 && _selected.Count == _rows.Count;
+    private void ToggleAll(bool value)
+    {
+        if (value) foreach (var r in _rows) _selected.Add(r);
+        else _selected.Clear();
+    }
+
     // Generate No. Faktur (Document Number) dari SP saat halaman pertama dibuka.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -283,6 +301,80 @@
         var no = await Task.Run(() => FpService.GenerateNoFakturAsync());
         docNumber = no ?? "";
         await InvokeAsync(StateHasChanged);
+    }
+
+    // ── Add: simpan hasil grid ke SAP_WEB (IDU_PAJAK_TRANS + _DET) ────────────
+    private async Task AddData()
+    {
+        // Hanya baris yang dicentang (urutan grid dipertahankan).
+        var chosen = _rows.Where(r => _selected.Contains(r)).ToList();
+        if (chosen.Count == 0)
+        {
+            Notifications.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "Belum ada pilihan",
+                Detail = "Ceklis minimal satu baris untuk disimpan.",
+                Duration = 5000
+            });
+            return;
+        }
+
+        var confirm = await DialogService.Confirm(
+            $"Simpan {chosen.Count} baris (tercentang) transaksi Pajak Keluaran ke database?",
+            "Konfirmasi Add",
+            new ConfirmOptions { OkButtonText = "Ya", CancelButtonText = "Batal" });
+        if (confirm != true) return;
+
+        _saving = true;
+        var header = BuildHeader();
+        var (ok, err, docEntry) = await Task.Run(() => WebDb.SavePajakKeluaranAsync(header, chosen));
+        _saving = false;
+
+        Notifications.Notify(new NotificationMessage
+        {
+            Severity = ok ? NotificationSeverity.Success : NotificationSeverity.Error,
+            Summary = ok ? "Tersimpan" : "Gagal menyimpan",
+            Detail = ok ? $"DocEntry {docEntry} tersimpan ({chosen.Count} baris)." : (err ?? "Error."),
+            Duration = ok ? 5000 : 9000
+        });
+
+        // Muat ulang grid setelah tersimpan; baris yang baru disimpan
+        // (U_Status='Y' di SAP_WEB) otomatis ter-exclude dari hasil Load.
+        if (ok) await LoadData();
+    }
+
+    private PajakKeluaranHeader BuildHeader()
+    {
+        var h = new PajakKeluaranHeader
+        {
+            Search = searchBy switch { "Invoice Number" => "N", "Date" => "D", "Customer" => "C", _ => "N" },
+            Format = "0",
+        };
+        switch (searchBy)
+        {
+            case "Invoice Number":
+                h.FromEntry = invFromDoc; h.ToEntry = invToDoc;
+                h.FromNum = invFromNum;   h.ToNum = invToNum;
+                break;
+            case "Customer":
+                h.FromEntry = custFromDoc; h.ToEntry = custToDoc;
+                h.FromCust = custFromName; h.ToCust = custToName;
+                break;
+            case "Date":
+                h.FromDate = ParseDdMmYy(fromDate); h.ToDate = ParseDdMmYy(toDate);
+                break;
+        }
+        return h;
+    }
+
+    private static DateTime? ParseDdMmYy(string ddmmyy)
+    {
+        var d = new string((ddmmyy ?? "").Where(char.IsDigit).ToArray());
+        if (d.Length != 6) return null;
+        return DateTime.TryParseExact($"20{d[4..6]}-{d[2..4]}-{d[..2]}", "yyyy-MM-dd",
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var dt) ? dt : null;
     }
 
     // Buka pop-up daftar invoice (OINV). Setelah Choose: tampilkan NumAtCard,
@@ -399,6 +491,13 @@
         if (result?.Error is null && result is not null)
         {
             _rows = MapRows(result);
+
+            // Kecualikan invoice yang SUDAH difaktur (ada di IDU_PAJAK_TRANS_DET
+            // SAP_WEB dengan U_Status='Y') — cocokkan DocEntry + tipe dokumen.
+            var processed = await Task.Run(() => WebDb.GetProcessedInvoiceKeysAsync());
+            if (processed.Count > 0)
+                _rows = _rows.Where(r => !processed.Contains((r.DocEntry, r.ObjType.ToString()))).ToList();
+
             ComputeWidths();
         }
 

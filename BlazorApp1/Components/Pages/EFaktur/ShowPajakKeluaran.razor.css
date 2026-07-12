@@ -1,0 +1,231 @@
+.ef-page {
+    --ef-navy: #123a5c;
+    --ef-navy-hover: #0e2e49;
+    --ef-blue: #5b9bd5;
+    --ef-blue-hover: #4a89c4;
+    --ef-border: #e3e6ea;
+}
+
+.ef-page .ef-card {
+    background: #fff;
+    border: 1px solid var(--ef-border);
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(16,24,40,.05);
+}
+
+.ef-page .ef-filter {
+    padding: 1.25rem 1.5rem;
+}
+
+.ef-page .ef-grid {
+    overflow: hidden;
+}
+
+/* ── Samakan tampilan grid dengan halaman Daftar Pajak Keluaran ── */
+.ef-page .ef-grid .dpk-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background: #eef4fb;
+    border-bottom: 1px solid var(--ef-border);
+    padding: .75rem 1rem;
+}
+
+.ef-page .ef-grid .dpk-card-title {
+    font-weight: 700;
+    color: #1f2d3d;
+}
+
+.ef-page .ef-grid .dpk-card-tools {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+.ef-page .dpk-filter-btn {
+    background: #fff;
+    border: 1px solid var(--ef-border);
+    color: #475467;
+    font-size: .85rem;
+    padding: .35rem .8rem;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.ef-page .dpk-filter-btn:hover {
+    background: #f4f6f8;
+}
+
+.ef-page .dpk-filter-btn.active {
+    background: var(--ef-navy);
+    color: #fff;
+    border-color: var(--ef-navy);
+}
+
+/* Header grid biru muda + judul kolom kapital abu-abu */
+.ef-page .dpk-grid {
+    --rz-grid-header-background-color: #eef4fb;
+    --rz-grid-header-color: #64748b;
+    border: none;
+}
+
+.ef-page .ef-grid ::deep .rz-grid-table thead th .rz-column-title-content {
+    text-transform: uppercase;
+    font-size: .72rem;
+    letter-spacing: .03em;
+    font-weight: 600;
+    color: #64748b;
+}
+
+/* Sel satu baris + ellipsis */
+.ef-page .ef-grid ::deep .rz-data-grid-data .rz-cell-data {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+/* Pager: halaman aktif navy */
+.ef-page .ef-grid ::deep .rz-paginator .rz-paginator-page.rz-state-active {
+    background: var(--ef-navy);
+    border-color: var(--ef-navy);
+    color: #fff;
+}
+
+.ef-page .ef-grid ::deep .rz-paginator {
+    background: #fff;
+    border: none;
+    padding: .5rem 1rem;
+}
+
+/* Batasi grid agar tidak melebihi lebar kartunya; scroll horizontal
+   ditangani area data internal Radzen (.rz-data-grid-data = overflow:auto),
+   sehingga yang men-scroll adalah grid, bukan seluruh halaman. */
+.ef-page .ef-grid ::deep .rz-data-grid,
+.ef-page .ef-grid ::deep .rz-data-grid-data {
+    max-width: 100%;
+    min-width: 0;
+}
+
+.ef-page .ef-label {
+    font-size: .8rem;
+    font-weight: 600;
+    color: #475467;
+    margin-bottom: .35rem;
+}
+
+.ef-page .ef-filter .form-control,
+.ef-page .ef-filter .form-select {
+    border-color: var(--ef-border);
+    font-size: .9rem;
+}
+
+/* Field tanggal: text bermask + ikon kalender (datepicker native) di ujung */
+.ef-date-field {
+    position: relative;
+}
+
+.ef-date-field .form-control {
+    padding-right: 2.3rem;
+}
+
+.ef-date-field .ef-date-native {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 2.3rem;
+    border: none;
+    background: transparent;
+    color: transparent;
+    cursor: pointer;
+}
+
+/* Sembunyikan segmen teks tanggal (dd/mm/yy) & spinner — sisakan ikon kalender */
+.ef-date-field .ef-date-native::-webkit-datetime-edit,
+.ef-date-field .ef-date-native::-webkit-inner-spin-button,
+.ef-date-field .ef-date-native::-webkit-clear-button {
+    display: none;
+}
+
+.ef-date-field .ef-date-native::-webkit-calendar-picker-indicator {
+    position: absolute;
+    right: .5rem;
+    opacity: .55;
+    cursor: pointer;
+}
+
+.ef-date-field .ef-date-native::-webkit-calendar-picker-indicator:hover {
+    opacity: .9;
+}
+
+.ef-page .ef-table {
+    font-size: .85rem;
+}
+
+.ef-page .ef-table thead th {
+    background: #f4f6f8;
+    color: #344054;
+    font-weight: 600;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--ef-border);
+}
+
+.ef-page .ef-table tbody td {
+    border-bottom: 1px solid #f0f1f3;
+    white-space: nowrap;
+    color: #344054;
+}
+
+.ef-page .ef-table tbody tr:hover {
+    background: #f7f9fb;
+}
+
+.ef-page .ef-btn-primary {
+    background: var(--ef-navy);
+    color: #fff;
+    border: 1px solid var(--ef-navy);
+    font-size: .9rem;
+}
+
+.ef-page .ef-btn-primary:hover {
+    background: var(--ef-navy-hover);
+    color: #fff;
+}
+
+.ef-page .ef-btn-secondary {
+    background: var(--ef-blue);
+    color: #fff;
+    border: 1px solid var(--ef-blue);
+    font-size: .9rem;
+}
+
+.ef-page .ef-btn-secondary:hover {
+    background: var(--ef-blue-hover);
+    color: #fff;
+}
+
+.ef-page .ef-btn-ghost {
+    background: #fff;
+    color: #475467;
+    border: 1px solid var(--ef-border);
+    font-size: .9rem;
+}
+
+.ef-page .ef-btn-ghost:hover {
+    background: #f4f6f8;
+    color: #344054;
+}
+
+.ef-page .ef-actionbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff;
+    border: 1px solid var(--ef-border);
+    border-radius: 10px;
+    padding: .75rem 1rem;
+    box-shadow: 0 1px 3px rgba(16,24,40,.05);
+}

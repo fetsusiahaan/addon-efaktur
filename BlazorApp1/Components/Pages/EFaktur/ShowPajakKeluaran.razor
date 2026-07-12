@@ -1,0 +1,293 @@
+@page "/efaktur/show-pajak-keluaran"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin,User")]
+@using BlazorApp1.Models
+@using BlazorApp1.Services
+@using Radzen.Blazor
+@inject WebDbService WebDb
+@inject NavigationManager Nav
+
+<PageTitle>Detail Pajak Keluaran</PageTitle>
+
+<div class="ef-page">
+
+    <PageHeader Title="Detail Pajak Keluaran" Breadcrumb="E-Faktur › Pajak Keluaran">
+        <Actions>
+            <button type="button" class="btn ef-btn-ghost" @onclick='() => Nav.NavigateTo("/efaktur/pajak-keluaran")'>
+                <i class="bi bi-arrow-left me-1"></i> Kembali ke Daftar
+            </button>
+        </Actions>
+    </PageHeader>
+
+    @if (_notFound)
+    {
+        <div class="ef-card text-center py-5">
+            <i class="bi bi-file-earmark-x" style="font-size:2.6rem;color:#c15b6b"></i>
+            <h2 class="mt-3 mb-1">Halaman Tidak Ditemukan</h2>
+            <p class="text-muted mb-3">
+                Data Pajak Keluaran dengan DocEntry <strong>@Doc</strong> tidak ada di database.
+            </p>
+            <button type="button" class="btn ef-btn-ghost" @onclick='() => Nav.NavigateTo("/efaktur/pajak-keluaran")'>
+                <i class="bi bi-arrow-left me-1"></i> Kembali ke Daftar
+            </button>
+        </div>
+    }
+    else
+    {
+
+    @* ---------- Panel info header (read-only) ---------- *@
+    <div class="ef-card ef-filter mb-3">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="ef-label">Document Number</label>
+                <input class="form-control" value="@docNum" readonly />
+            </div>
+            <div class="col-md-3">
+                <label class="ef-label">Search by</label>
+                <input class="form-control" value="@SearchByLabel" readonly />
+            </div>
+            <div class="col-md-3">
+                <label class="ef-label">From</label>
+                <input class="form-control" value="@fromVal" readonly />
+            </div>
+            <div class="col-md-3">
+                <label class="ef-label">To</label>
+                <input class="form-control" value="@toVal" readonly />
+            </div>
+        </div>
+    </div>
+
+    @* ---------- Grid detail ---------- *@
+    <div class="ef-card ef-grid mb-3">
+        @if (loading)
+        {
+            <div class="text-center text-muted py-5">
+                <div class="spinner-border text-secondary" role="status"></div>
+                <div class="mt-2">Memuat data...</div>
+            </div>
+        }
+        else if (error is not null)
+        {
+            <div class="alert alert-danger m-3">
+                <strong>Gagal memuat data.</strong><br />
+                @error
+            </div>
+        }
+        else
+        {
+            <div class="dpk-card-head">
+                <span class="dpk-card-title">Detail E-Faktur Keluaran</span>
+                <div class="dpk-card-tools">
+                    <button type="button" class="dpk-filter-btn @(_showFilter ? "active" : "")"
+                            @onclick="() => _showFilter = !_showFilter">
+                        <i class="bi bi-funnel me-1"></i> Filter
+                    </button>
+                </div>
+            </div>
+
+            <RadzenDataGrid Data="@_rows" TItem="FakturKeluaranRow"
+                            AllowFiltering="@_showFilter" FilterMode="Radzen.FilterMode.Simple"
+                            FilterCaseSensitivity="Radzen.FilterCaseSensitivity.CaseInsensitive"
+                            AllowSorting="true" AllowColumnResize="true"
+                            AllowAlternatingRows="true" AllowPaging="true" PageSize="10"
+                            PagerPosition="Radzen.PagerPosition.Top" PagerHorizontalAlign="Radzen.HorizontalAlign.Right"
+                            ShowPagingSummary="true" PagingSummaryFormat="Halaman {0} dari {1} ({2} data)"
+                            Density="Radzen.Density.Compact" GridLines="Radzen.DataGridGridLines.Horizontal"
+                            EmptyText="Tidak ada data." class="dpk-grid"
+                            Style="height: 60vh;">
+                <Columns>
+                    @foreach (var c in FakturKeluaranRow.Columns)
+                    {
+                        <RadzenDataGridColumn TItem="FakturKeluaranRow" Property="@c.Property" Title="@c.Title"
+                                              Width="@WidthOf(c.Property)" Visible="@c.Visible"
+                                              TextAlign="@(c.Kind is ColKind.Number or ColKind.Money ? Radzen.TextAlign.Right : Radzen.TextAlign.Left)"
+                                              FormatString="@FormatOf(c.Kind)" />
+                    }
+                </Columns>
+            </RadzenDataGrid>
+        }
+    </div>
+
+    @* ---------- Bar Aksi ---------- *@
+    <div class="ef-actionbar">
+        <div></div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn ef-btn-ghost"><i class="bi bi-filetype-csv me-1"></i> Export CSV</button>
+            <button type="button" class="btn ef-btn-ghost"><i class="bi bi-filetype-xml me-1"></i> Export XML</button>
+        </div>
+    </div>
+    }
+</div>
+
+@code {
+    // string agar nilai non-angka tidak menyebabkan error binding; diparse manual.
+    [SupplyParameterFromQuery] public string? Doc { get; set; }
+
+    private bool loading = true;
+    private bool _loaded;
+    private bool _showFilter;
+    private bool _notFound;
+    private string? error;
+    private List<FakturKeluaranRow> _rows = new();
+
+    // Header (read-only)
+    private string docNum = "";
+    private string searchCode = "";
+    private string fromVal = "";
+    private string toVal = "";
+
+    private string SearchByLabel => searchCode switch
+    {
+        "N" => "Invoice Number",
+        "D" => "Date",
+        "C" => "Customer",
+        _ => searchCode
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_loaded)
+        {
+            _loaded = true;
+            await LoadData();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        StateHasChanged();
+        await Task.Yield();
+
+        // Doc harus angka (DocEntry). Bukan angka -> anggap tidak ditemukan.
+        if (!int.TryParse(Doc, out var docId))
+        {
+            _notFound = true;
+            loading = false;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        var sql = $@"
+            SELECT h.DocNum, h.U_Search, h.U_FNum, h.U_TNum, h.U_FrCust, h.U_ToCust, h.U_FrDate, h.U_ToDate,
+                   d.U_EntryINV, d.U_NumINV, d.U_DateINV, d.U_BPCode, d.U_DocType, d.U_DTypeN, d.U_NoFP, d.U_BPName,
+                   d.U_DocTotal, d.U_VatSum, d.U_Discount, d.U_DP, d.U_JDP, d.U_Status,
+                   d.U_IDU_Pengganti, d.U_IDU_KetTambah, d.U_IDU_Referensi, d.U_IDU_JenisPajak,
+                   d.U_IDU_NamaNPWP, d.U_IDU_AlmtNPWP, d.U_IDU_NPWP, d.U_IDU_NIK, d.U_IDU_KDP, d.U_IDU_RatePajak
+            FROM IDU_PAJAK_TRANS h
+            JOIN IDU_PAJAK_TRANS_DET d ON h.DocEntry = d.DocEntry
+            WHERE h.DocEntry = {docId}
+            ORDER BY d.LineId";
+
+        var result = await Task.Run(() => WebDb.RunQueryAsync(sql));
+
+        if (result.Error is not null)
+            error = result.Error;
+        else
+        {
+            Parse(result);
+            _notFound = _rows.Count == 0;   // DocEntry tidak ada di database
+            if (!_notFound) ComputeWidths();
+        }
+
+        loading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void Parse(QueryResult r)
+    {
+        var idx = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < r.Columns.Count; i++) idx[r.Columns[i]] = i;
+        object? Get(object?[] row, string col) => idx.TryGetValue(col, out var i) && i < row.Length ? row[i] : null;
+
+        if (r.Rows.Count > 0)
+        {
+            var h = r.Rows[0];
+            docNum = Get(h, "DocNum")?.ToString() ?? "";
+            searchCode = Get(h, "U_Search")?.ToString() ?? "";
+            (fromVal, toVal) = searchCode switch
+            {
+                "D" => (FmtDate(Get(h, "U_FrDate")), FmtDate(Get(h, "U_ToDate"))),
+                "C" => (Get(h, "U_FrCust")?.ToString() ?? "", Get(h, "U_ToCust")?.ToString() ?? ""),
+                _   => (Get(h, "U_FNum")?.ToString() ?? "", Get(h, "U_TNum")?.ToString() ?? ""),
+            };
+        }
+
+        _rows = r.Rows.Select(row => new FakturKeluaranRow
+        {
+            DocEntry   = ToInt(Get(row, "U_EntryINV")),
+            DocNum     = ToInt(Get(row, "U_NumINV")),
+            DocDate    = ToDate(Get(row, "U_DateINV")),
+            CardCode   = Get(row, "U_BPCode")?.ToString(),
+            ObjType    = ToInt(Get(row, "U_DocType")),
+            ObjName    = Get(row, "U_DTypeN")?.ToString(),
+            NoFP       = Get(row, "U_NoFP")?.ToString(),
+            CardName   = Get(row, "U_BPName")?.ToString(),
+            DocTotal   = ToDec(Get(row, "U_DocTotal")),
+            VatSum     = ToDec(Get(row, "U_VatSum")),
+            Discount   = ToDec(Get(row, "U_Discount")),
+            DP         = ToDec(Get(row, "U_DP")),
+            JDP        = Get(row, "U_JDP")?.ToString(),
+            Status     = Get(row, "U_Status")?.ToString(),
+            Pengganti  = Get(row, "U_IDU_Pengganti")?.ToString(),
+            KetTambah  = Get(row, "U_IDU_KetTambah")?.ToString(),
+            Referensi  = Get(row, "U_IDU_Referensi")?.ToString(),
+            JenisPajak = Get(row, "U_IDU_JenisPajak")?.ToString(),
+            NamaNPWP   = Get(row, "U_IDU_NamaNPWP")?.ToString(),
+            AlamatNPWP = Get(row, "U_IDU_AlmtNPWP")?.ToString(),
+            NPWP       = Get(row, "U_IDU_NPWP")?.ToString(),
+            NIK        = Get(row, "U_IDU_NIK")?.ToString(),
+            KDP        = Get(row, "U_IDU_KDP")?.ToString(),
+            RatePajak  = Get(row, "U_IDU_RatePajak")?.ToString(),
+        }).ToList();
+    }
+
+    private static int ToInt(object? v) => v is null ? 0 : int.TryParse(v.ToString(), out var i) ? i : 0;
+    private static decimal ToDec(object? v) => v is null ? 0m : decimal.TryParse(v.ToString(), out var d) ? d : 0m;
+    private static DateTime? ToDate(object? v) => v switch
+    {
+        DateTime dt => dt,
+        { } x when DateTime.TryParse(x.ToString(), out var d) => d,
+        _ => null,
+    };
+    private static string FmtDate(object? v) => ToDate(v) is { } d ? d.ToString("dd.MM.yyyy") : "";
+
+    // ── Lebar kolom otomatis (fit isi) ────────────────────────────────────────
+    private readonly Dictionary<string, int> _colWidths = new();
+
+    private static readonly Dictionary<string, System.Reflection.PropertyInfo> _props =
+        typeof(FakturKeluaranRow).GetProperties()
+            .ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);
+
+    private void ComputeWidths()
+    {
+        _colWidths.Clear();
+        foreach (var c in FakturKeluaranRow.Columns)
+        {
+            if (!c.Visible) continue;
+            _props.TryGetValue(c.Property, out var pi);
+            var maxData = (pi is null || _rows.Count == 0)
+                ? 0
+                : _rows.Max(r => FormatVal(pi.GetValue(r), c.Kind).Length);
+            var chars = Math.Max(c.Title.Length + 2, maxData);
+            _colWidths[c.Property] = Math.Clamp(chars * 8 + 26, 90, 320);
+        }
+    }
+
+    private string WidthOf(string prop) => (_colWidths.TryGetValue(prop, out var w) ? w : 140) + "px";
+
+    private static string? FormatOf(ColKind kind) => kind switch
+    {
+        ColKind.Money => "{0:#,##0.00}",
+        ColKind.Date  => "{0:dd.MM.yyyy}",
+        _             => null,
+    };
+
+    private static string FormatVal(object? v, ColKind kind) => v switch
+    {
+        null => "",
+        DateTime dt when kind == ColKind.Date => dt.ToString("dd.MM.yyyy"),
+        decimal d when kind == ColKind.Money => d.ToString("#,##0.00"),
+        _ => v.ToString() ?? "",
+    };
+}
