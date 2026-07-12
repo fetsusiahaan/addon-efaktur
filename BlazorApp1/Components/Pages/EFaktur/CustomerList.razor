@@ -1,0 +1,122 @@
+@using BlazorApp1.Models
+@using BlazorApp1.Services
+@using Radzen.Blazor
+@inject SapQueryService QuerySvc
+@inject Radzen.DialogService DialogService
+
+<div class="inv-list">
+
+    <div class="inv-find">
+        <label class="inv-find-label">Find</label>
+        <input class="form-control" placeholder="Cari Kode / Nama Customer / Owner..."
+               value="@_search" @oninput="e => _search = e.Value?.ToString() ?? string.Empty" />
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center text-muted py-5">
+            <div class="spinner-border text-secondary" role="status"></div>
+            <div class="mt-2">Memuat data...</div>
+        </div>
+    }
+    else if (_error is not null)
+    {
+        <div class="alert alert-danger mb-0">@_error</div>
+    }
+    else
+    {
+        <RadzenDataGrid Data="@Filtered" TItem="CustomerListRow"
+                        AllowPaging="true" PageSize="10" AllowSorting="true"
+                        SelectionMode="Radzen.DataGridSelectionMode.Single" @bind-Value="_selected"
+                        Density="Radzen.Density.Compact" GridLines="Radzen.DataGridGridLines.Both"
+                        RowDoubleClick="@(args => Choose(args.Data))"
+                        EmptyText="Tidak ada data." Style="height: 360px;">
+            <Columns>
+                <RadzenDataGridColumn TItem="CustomerListRow" Property="CardCode" Title="CardCode" Width="130px" />
+                <RadzenDataGridColumn TItem="CustomerListRow" Property="CardName" Title="CardName" Width="240px" />
+                <RadzenDataGridColumn TItem="CustomerListRow" Property="OwnerName" Title="Owner Name" Width="180px" />
+            </Columns>
+        </RadzenDataGrid>
+    }
+
+    <div class="inv-actions">
+        <button type="button" class="btn btn-sm inv-choose"
+                @onclick="() => Choose(_selected?.FirstOrDefault())"
+                disabled="@(_selected is null || _selected.Count == 0)">
+            <i class="bi bi-check2 me-1"></i>Choose
+        </button>
+        <button type="button" class="btn btn-sm inv-cancel" @onclick="() => DialogService.Close(null)">Cancel</button>
+    </div>
+</div>
+
+@code {
+    private bool _loading = true;
+    private string? _error;
+    private string _search = string.Empty;
+    private List<CustomerListRow> _rows = new();
+    private IList<CustomerListRow>? _selected;
+
+    // SATU query portabel untuk SQL Server & SAP HANA:
+    //  - COALESCE (bukan ISNULL/IFNULL)
+    //  - CONCAT(CONCAT(a,' '),b) untuk gabung string (2-argumen, valid di keduanya)
+    //  - alias "Owner Name" (kutip ganda, diterima keduanya)
+    // Jenis DB ditentukan otomatis dari Koneksi DB user (via SapQueryService).
+    private const string Sql = @"SELECT
+    T0.DocEntry,
+    T0.CardCode,
+    T0.CardName,
+    T0.OwnerCode,
+    LTRIM(RTRIM(CONCAT(CONCAT(COALESCE(T1.firstName, ''), ' '), COALESCE(T1.lastName, '')))) AS ""Owner Name""
+FROM OCRD T0
+LEFT JOIN OHEM T1 ON T0.OwnerCode = T1.empID";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Task.Run(() => QuerySvc.RunQueryAsync(Sql));
+        if (result?.Error is not null)
+            _error = result.Error;
+        else if (result is not null)
+            _rows = MapRows(result);
+        _loading = false;
+    }
+
+    private IEnumerable<CustomerListRow> Filtered
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_search)) return _rows;
+            var s = _search.Trim();
+            return _rows.Where(r =>
+                (r.CardCode ?? "").Contains(s, StringComparison.OrdinalIgnoreCase) ||
+                (r.CardName ?? "").Contains(s, StringComparison.OrdinalIgnoreCase) ||
+                (r.OwnerName ?? "").Contains(s, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private void Choose(CustomerListRow? row)
+    {
+        if (row is not null) DialogService.Close(row);
+    }
+
+    private static List<CustomerListRow> MapRows(QueryResult r)
+    {
+        var idx = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < r.Columns.Count; i++) idx[r.Columns[i]] = i;
+
+        object? Get(object?[] row, string col) => idx.TryGetValue(col, out var i) && i < row.Length ? row[i] : null;
+
+        var list = new List<CustomerListRow>(r.Rows.Count);
+        foreach (var row in r.Rows)
+        {
+            list.Add(new CustomerListRow
+            {
+                DocEntry  = Get(row, "DocEntry") is { } de ? Convert.ToInt32(de) : 0,
+                CardCode  = Get(row, "CardCode")?.ToString(),
+                CardName  = Get(row, "CardName")?.ToString(),
+                OwnerCode = Get(row, "OwnerCode")?.ToString(),
+                OwnerName = Get(row, "Owner Name")?.ToString(),
+            });
+        }
+        return list;
+    }
+}

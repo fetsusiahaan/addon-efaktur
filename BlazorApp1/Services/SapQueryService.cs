@@ -76,20 +76,20 @@ public class SapQueryService
     /// </summary>
     public async Task<QueryResult> RunQueryAsync(string sql, CancellationToken ct = default)
     {
-        var result = new QueryResult();
-
         if (string.IsNullOrWhiteSpace(sql))
-        {
-            result.Error = "Query kosong.";
-            return result;
-        }
+            return new QueryResult { Error = "Query kosong." };
 
         var (active, connError) = await ResolveConnectionAsync();
         if (active is null)
-        {
-            result.Error = connError;
-            return result;
-        }
+            return new QueryResult { Error = connError };
+
+        return await ExecuteAsync(active, sql, ct);
+    }
+
+    // Eksekusi query pada koneksi tertentu (jenis DB dari koneksi user).
+    private async Task<QueryResult> ExecuteAsync(DbConnectionEntry active, string sql, CancellationToken ct)
+    {
+        var result = new QueryResult();
 
         if (string.IsNullOrWhiteSpace(active.ConnString))
         {

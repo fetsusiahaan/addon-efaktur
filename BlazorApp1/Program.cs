@@ -30,8 +30,10 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     {
         options.Cookie.Name = "EFaktur.Auth";
         options.Cookie.HttpOnly = true;                       // tak bisa dibaca JS (anti-XSS)
-        options.Cookie.SameSite = SameSiteMode.Strict;        // anti-CSRF
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // hanya via HTTPS
+        options.Cookie.SameSite = SameSiteMode.Lax;           // anti-CSRF, tetap jalan di HTTP
+        // SameAsRequest: cookie ditandai Secure hanya bila diakses via HTTPS,
+        // sehingga tetap berfungsi saat deploy HTTP (mis. IIS http://host:5343).
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.LoginPath = "/login";
         options.AccessDeniedPath = "/denied";
         options.ExpireTimeSpan = TimeSpan.FromHours(8);

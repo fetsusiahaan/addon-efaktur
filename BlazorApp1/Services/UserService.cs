@@ -117,6 +117,7 @@ public class UserService
         var now = DateTime.Now;
         var seed = new (string Full, string Email, string User, string Status, string Role, DateTime Joined, DateTime Last)[]
         {
+            ("Administrator",  "admin@efaktur.local",  "admin",      "Active",    "Admin",     new(2024,1,1),   now),
             ("John Smith",     "john.smith@gmail.com", "jonny77",    "Active",    "Admin",     new(2023,3,12),  now.AddMinutes(-1)),
             ("Olivia Bennett", "ollyben@gmail.com",    "olly659",    "Inactive",  "User",      new(2022,6,27),  now.AddMonths(-1)),
             ("Daniel Warren",  "dwarren3@gmail.com",   "dwarren3",   "Banned",    "User",      new(2024,1,8),   now.AddDays(-4)),

@@ -59,6 +59,25 @@ public class PajakKeluaranService
         return $"CALL \"{schema}\".\"{sp}\" ('{Esc(from)}', '{Esc(to)}', 0, {inv}, {dp}, {rcm})";
     }
 
+    /// <summary>
+    /// Panggil SP generator No. Faktur (__IDUFAKTURPAJAK_GENERATE_NOFAKTUR)
+    /// pada schema koneksi user, dan kembalikan nilainya (sel pertama hasil).
+    /// </summary>
+    public async Task<string?> GenerateNoFakturAsync(CancellationToken ct = default)
+    {
+        var (entry, _) = await _query.ResolveConnectionAsync();
+        if (entry is null || string.IsNullOrWhiteSpace(entry.Schema))
+            return null;
+
+        var sql = $"CALL \"{entry.Schema}\".\"__IDUFAKTURPAJAK_GENERATE_NOFAKTUR\"()";
+        var result = await _query.RunQueryAsync(sql, ct);
+
+        if (!string.IsNullOrEmpty(result.Error) || result.Rows.Count == 0 || result.Columns.Count == 0)
+            return null;
+
+        return result.Rows[0][0]?.ToString();
+    }
+
     // Escape tanda kutip tunggal agar tidak merusak literal SQL.
     private static string Esc(string? s) => (s ?? "").Replace("'", "''");
 

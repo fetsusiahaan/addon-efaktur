@@ -6,6 +6,7 @@
 @using Radzen.Blazor
 @inject PajakKeluaranService FpService
 @inject NavigationManager Nav
+@inject Radzen.DialogService DialogService
 
 <PageTitle>Buat Pajak Keluaran</PageTitle>
 
@@ -36,18 +37,33 @@
                     </div>
                     <div class="col-md-6">
                         <label class="ef-label">Document Number</label>
-                        <input class="form-control" />
+                        <div class="input-group">
+                            <input class="form-control" value="@docNumber" readonly placeholder="No. Faktur otomatis..." />
+                            <button class="btn ef-btn-ghost" type="button" @onclick="GenerateNoFaktur" title="Generate ulang No. Faktur">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </button>
+                        </div>
                     </div>
 
                     @if (searchBy == "Invoice Number")
                     {
                         <div class="col-md-6">
                             <label class="ef-label">From Number <span class="text-danger">*</span></label>
-                            <input class="form-control" placeholder="Start number..." @bind="invFrom" />
+                            <div class="input-group">
+                                <input class="form-control" placeholder="Pilih invoice..." value="@invFromNum" readonly />
+                                <button class="btn ef-btn-ghost" type="button" @onclick="() => OpenInvoiceModal(true)" title="Pilih invoice">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="ef-label">To Number <span class="text-danger">*</span></label>
-                            <input class="form-control" placeholder="End number..." @bind="invTo" />
+                            <div class="input-group">
+                                <input class="form-control" placeholder="Pilih invoice..." value="@invToNum" readonly />
+                                <button class="btn ef-btn-ghost" type="button" @onclick="() => OpenInvoiceModal(false)" title="Pilih invoice">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
                         </div>
                     }
                     else if (searchBy == "Date")
@@ -75,21 +91,27 @@
                     {
                         <div class="col-md-6">
                             <label class="ef-label">From Customer <span class="text-danger">*</span></label>
-                            <input class="form-control" placeholder="Start identifier..." @bind="custFrom" />
+                            <div class="input-group">
+                                <input class="form-control" placeholder="Pilih customer..." value="@custFromName" readonly />
+                                <button class="btn ef-btn-ghost" type="button" @onclick="() => OpenCustomerModal(true)" title="Pilih customer">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="ef-label">To Customer <span class="text-danger">*</span></label>
-                            <input class="form-control" placeholder="End identifier..." @bind="custTo" />
+                            <div class="input-group">
+                                <input class="form-control" placeholder="Pilih customer..." value="@custToName" readonly />
+                                <button class="btn ef-btn-ghost" type="button" @onclick="() => OpenCustomerModal(false)" title="Pilih customer">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
                         </div>
                     }
 
                     <div class="col-md-6">
                         <label class="ef-label">Canceled</label>
-                        <select class="form-select">
-                            <option>No</option>
-                            <option>Yes</option>
-                            <option>All</option>
-                        </select>
+                        <input class="form-control" value="No" readonly />
                     </div>
                 </div>
             </div>
@@ -212,15 +234,23 @@
 
 @code {
     private string searchBy = "Customer";
+    private string docNumber = "";     // No. Faktur hasil SP generator
+    private bool _noFakturLoaded;
     private bool dtInvoice = true;
     private bool dtDownPayment = true;
     private bool dtRefCreditMemo = true;
 
     // Isian From/To per jenis Search By.
-    private string invFrom = "";      // Invoice Number
-    private string invTo = "";
-    private string custFrom = "";     // Vendor / Customer
-    private string custTo = "";
+    // Invoice Number: tampil NumAtCard, tapi yang dipakai SP = DocEntry (hidden).
+    private string invFromNum = "";   // NumAtCard (tampil)
+    private string invFromDoc = "";   // DocEntry (hidden -> param SP)
+    private string invToNum = "";
+    private string invToDoc = "";
+    // Customer: tampil CardName, tapi yang dipakai SP = DocEntry (hidden).
+    private string custFromName = "";  // CardName (tampil)
+    private string custFromDoc = "";   // DocEntry (hidden -> param SP)
+    private string custToName = "";
+    private string custToDoc = "";
 
     private bool loading;
     private bool _showFilter;
@@ -235,6 +265,59 @@
     private void ToggleRow(FakturKeluaranRow row, bool value)
     {
         if (value) _selected.Add(row); else _selected.Remove(row);
+    }
+
+    // Generate No. Faktur (Document Number) dari SP saat halaman pertama dibuka.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_noFakturLoaded)
+        {
+            _noFakturLoaded = true;
+            await GenerateNoFaktur();
+        }
+    }
+
+    private async Task GenerateNoFaktur()
+    {
+        // Di thread pool agar driver DB yang memblokir tak membekukan UI.
+        var no = await Task.Run(() => FpService.GenerateNoFakturAsync());
+        docNumber = no ?? "";
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // Buka pop-up daftar invoice (OINV). Setelah Choose: tampilkan NumAtCard,
+    // simpan DocEntry (hidden) sebagai parameter SP.
+    private async Task OpenInvoiceModal(bool isFrom)
+    {
+        var result = await DialogService.OpenAsync<InvoiceNumberList>(
+            "List of A/R Invoices", null,
+            new Radzen.DialogOptions { Width = "760px", Height = "560px", CloseDialogOnOverlayClick = true });
+
+        if (result is InvoiceListRow row)
+        {
+            if (isFrom) { invFromNum = row.NumAtCard ?? ""; invFromDoc = row.DocEntry.ToString(); }
+            else        { invToNum = row.NumAtCard ?? "";   invToDoc = row.DocEntry.ToString(); }
+
+            // Paksa render agar nilai baru langsung tampil di field.
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // Buka pop-up daftar customer (OCRD). Setelah Choose: tampilkan CardName,
+    // simpan DocEntry (hidden) sebagai parameter SP.
+    private async Task OpenCustomerModal(bool isFrom)
+    {
+        var result = await DialogService.OpenAsync<CustomerList>(
+            "List of Customers", null,
+            new Radzen.DialogOptions { Width = "760px", Height = "560px", CloseDialogOnOverlayClick = true });
+
+        if (result is CustomerListRow row)
+        {
+            if (isFrom) { custFromName = row.CardName ?? ""; custFromDoc = row.DocEntry.ToString(); }
+            else        { custToName = row.CardName ?? "";   custToDoc = row.DocEntry.ToString(); }
+
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     // Filter tanggal (format dd.MM.yy), diisi via input bermask.
@@ -274,10 +357,10 @@
         // From & To wajib diisi (sesuai jenis Search By).
         var (from, to) = searchBy switch
         {
-            "Invoice Number" => (invFrom, invTo),
+            "Invoice Number" => (invFromDoc, invToDoc),
             "Date"           => (fromDate, toDate),
-            "Customer"       => (custFrom, custTo),
-            _                => (invFrom, invTo),
+            "Customer"       => (custFromDoc, custToDoc),
+            _                => (invFromDoc, invToDoc),
         };
         if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(to))
         {
@@ -298,12 +381,12 @@
         var filter = new PajakKeluaranFilter
         {
             SearchBy      = searchBy,
-            InvoiceFrom   = invFrom,
-            InvoiceTo     = invTo,
+            InvoiceFrom   = invFromDoc,
+            InvoiceTo     = invToDoc,
             DateFrom      = fromDate,
             DateTo        = toDate,
-            CustomerFrom  = custFrom,
-            CustomerTo    = custTo,
+            CustomerFrom  = custFromDoc,
+            CustomerTo    = custToDoc,
             Invoice       = dtInvoice,
             DownPayment   = dtDownPayment,
             RefCreditMemo = dtRefCreditMemo,

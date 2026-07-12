@@ -1,0 +1,50 @@
+.inv-find {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: .75rem;
+}
+
+.inv-find-label {
+    font-weight: 600;
+    color: #1f5fa8;
+    min-width: 40px;
+}
+
+.inv-find .form-control {
+    max-width: 320px;
+}
+
+.inv-actions {
+    display: flex;
+    gap: .5rem;
+    margin-top: 1rem;
+}
+
+/* Tombol Choose disamakan dengan tombol Add (navy) di Create Pajak Keluaran */
+.inv-choose {
+    background: #123a5c;
+    color: #fff;
+    border: 1px solid #123a5c;
+}
+
+.inv-choose:hover:not(:disabled) {
+    background: #0e2e49;
+    color: #fff;
+}
+
+.inv-choose:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
+.inv-cancel {
+    background: #fff;
+    color: #475467;
+    border: 1px solid #e3e6ea;
+}
+
+.inv-cancel:hover {
+    background: #f4f6f8;
+    color: #344054;
+}

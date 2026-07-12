@@ -1,0 +1,113 @@
+@using BlazorApp1.Models
+@using BlazorApp1.Services
+@using Radzen.Blazor
+@inject SapQueryService QuerySvc
+@inject Radzen.DialogService DialogService
+
+<div class="inv-list">
+
+    <div class="inv-find">
+        <label class="inv-find-label">Find</label>
+        <input class="form-control" placeholder="Cari No. Invoice / NumAtCard / Customer..."
+               value="@_search" @oninput="e => _search = e.Value?.ToString() ?? string.Empty" />
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center text-muted py-5">
+            <div class="spinner-border text-secondary" role="status"></div>
+            <div class="mt-2">Memuat data...</div>
+        </div>
+    }
+    else if (_error is not null)
+    {
+        <div class="alert alert-danger mb-0">@_error</div>
+    }
+    else
+    {
+        <RadzenDataGrid Data="@Filtered" TItem="InvoiceListRow"
+                        AllowPaging="true" PageSize="10" AllowSorting="true"
+                        SelectionMode="Radzen.DataGridSelectionMode.Single" @bind-Value="_selected"
+                        Density="Radzen.Density.Compact" GridLines="Radzen.DataGridGridLines.Both"
+                        RowDoubleClick="@(args => Choose(args.Data))"
+                        EmptyText="Tidak ada data." Style="height: 360px;">
+            <Columns>
+                <RadzenDataGridColumn TItem="InvoiceListRow" Property="DocNum" Title="No. Invoice" Width="110px" TextAlign="Radzen.TextAlign.Right" />
+                <RadzenDataGridColumn TItem="InvoiceListRow" Property="NumAtCard" Title="NumAtCard" Width="150px" />
+                <RadzenDataGridColumn TItem="InvoiceListRow" Property="CardCode" Title="CardCode" Width="120px" />
+                <RadzenDataGridColumn TItem="InvoiceListRow" Property="CardName" Title="CardName" Width="240px" />
+            </Columns>
+        </RadzenDataGrid>
+    }
+
+    <div class="inv-actions">
+        <button type="button" class="btn btn-sm inv-choose"
+                @onclick="() => Choose(_selected?.FirstOrDefault())"
+                disabled="@(_selected is null || _selected.Count == 0)">
+            <i class="bi bi-check2 me-1"></i>Choose
+        </button>
+        <button type="button" class="btn btn-sm inv-cancel" @onclick="() => DialogService.Close(null)">Cancel</button>
+    </div>
+</div>
+
+@code {
+    private bool _loading = true;
+    private string? _error;
+    private string _search = string.Empty;
+    private List<InvoiceListRow> _rows = new();
+    private IList<InvoiceListRow>? _selected;
+
+    private const string Sql = "SELECT DocEntry, NumAtCard, DocNum, CardCode, CardName FROM OINV";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Query di thread pool agar driver DB yang memblokir tak membekukan UI.
+        var result = await Task.Run(() => QuerySvc.RunQueryAsync(Sql));
+        if (result?.Error is not null)
+            _error = result.Error;
+        else if (result is not null)
+            _rows = MapRows(result);
+        _loading = false;
+    }
+
+    private IEnumerable<InvoiceListRow> Filtered
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_search)) return _rows;
+            var s = _search.Trim();
+            return _rows.Where(r =>
+                (r.NumAtCard ?? "").Contains(s, StringComparison.OrdinalIgnoreCase) ||
+                r.DocNum.ToString().Contains(s, StringComparison.OrdinalIgnoreCase) ||
+                (r.CardCode ?? "").Contains(s, StringComparison.OrdinalIgnoreCase) ||
+                (r.CardName ?? "").Contains(s, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private void Choose(InvoiceListRow? row)
+    {
+        if (row is not null) DialogService.Close(row);
+    }
+
+    private static List<InvoiceListRow> MapRows(QueryResult r)
+    {
+        var idx = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < r.Columns.Count; i++) idx[r.Columns[i]] = i;
+
+        object? Get(object?[] row, string col) => idx.TryGetValue(col, out var i) && i < row.Length ? row[i] : null;
+
+        var list = new List<InvoiceListRow>(r.Rows.Count);
+        foreach (var row in r.Rows)
+        {
+            list.Add(new InvoiceListRow
+            {
+                DocEntry  = Get(row, "DocEntry") is { } de ? Convert.ToInt32(de) : 0,
+                NumAtCard = Get(row, "NumAtCard")?.ToString(),
+                DocNum    = Get(row, "DocNum") is { } dn ? Convert.ToInt32(dn) : 0,
+                CardCode  = Get(row, "CardCode")?.ToString(),
+                CardName  = Get(row, "CardName")?.ToString(),
+            });
+        }
+        return list;
+    }
+}
