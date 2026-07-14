@@ -5,7 +5,11 @@
 @using BlazorApp1.Services
 @using Radzen.Blazor
 @inject WebDbService WebDb
+@inject EFakturExportService CsvExport
 @inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject Radzen.NotificationService Notifications
+@inject Radzen.DialogService DialogService
 
 <PageTitle>Detail Pajak Keluaran</PageTitle>
 
@@ -43,16 +47,12 @@
                 <input class="form-control" value="@docNum" readonly />
             </div>
             <div class="col-md-3">
-                <label class="ef-label">Search by</label>
-                <input class="form-control" value="@SearchByLabel" readonly />
+                <label class="ef-label">Document Date</label>
+                <input class="form-control" value="@docDate" readonly />
             </div>
             <div class="col-md-3">
-                <label class="ef-label">From</label>
-                <input class="form-control" value="@fromVal" readonly />
-            </div>
-            <div class="col-md-3">
-                <label class="ef-label">To</label>
-                <input class="form-control" value="@toVal" readonly />
+                <label class="ef-label">Status Document</label>
+                <input class="form-control" value="@StatusLabel" readonly />
             </div>
         </div>
     </div>
@@ -96,6 +96,18 @@
                             EmptyText="Tidak ada data." class="dpk-grid"
                             Style="height: 60vh;">
                 <Columns>
+                    <RadzenDataGridColumn TItem="FakturKeluaranRow" Width="46px" Sortable="false" Filterable="false"
+                                          TextAlign="Radzen.TextAlign.Center">
+                        <HeaderTemplate>
+                            <input type="checkbox" title="Pilih semua"
+                                   checked="@AllSelected"
+                                   @onchange="e => ToggleAll((bool)(e.Value ?? false))" />
+                        </HeaderTemplate>
+                        <Template Context="row">
+                            <input type="checkbox" checked="@_selected.Contains(row)"
+                                   @onchange="e => ToggleRow(row, (bool)(e.Value ?? false))" />
+                        </Template>
+                    </RadzenDataGridColumn>
                     @foreach (var c in FakturKeluaranRow.Columns)
                     {
                         <RadzenDataGridColumn TItem="FakturKeluaranRow" Property="@c.Property" Title="@c.Title"
@@ -110,10 +122,21 @@
 
     @* ---------- Bar Aksi ---------- *@
     <div class="ef-actionbar">
-        <div></div>
         <div class="d-flex gap-2">
-            <button type="button" class="btn ef-btn-ghost"><i class="bi bi-filetype-csv me-1"></i> Export CSV</button>
-            <button type="button" class="btn ef-btn-ghost"><i class="bi bi-filetype-xml me-1"></i> Export XML</button>
+            <button type="button" class="btn ef-btn-ghost" @onclick="ExcludeSelected" disabled="@(_selected.Count == 0)">
+                <i class="bi bi-x-circle me-1"></i> Exclude
+            </button>
+            <button type="button" class="btn ef-btn-ghost" @onclick="CancelDocument" disabled="@(_rows.Count == 0)">
+                <i class="bi bi-slash-circle me-1"></i> Cancel Document
+            </button>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn ef-btn-ghost" @onclick="ExportCsv" disabled="@(_rows.Count == 0)">
+                <i class="bi bi-filetype-csv me-1"></i> Export CSV
+            </button>
+            <button type="button" class="btn ef-btn-ghost" @onclick="ExportXml" disabled="@(_rows.Count == 0)">
+                <i class="bi bi-filetype-xml me-1"></i> Export XML
+            </button>
         </div>
     </div>
     }
@@ -125,23 +148,36 @@
 
     private bool loading = true;
     private bool _loaded;
+    private int _docId;
     private bool _showFilter;
     private bool _notFound;
     private string? error;
     private List<FakturKeluaranRow> _rows = new();
 
+    // Pilihan baris (kolom ceklis paling depan).
+    private readonly HashSet<FakturKeluaranRow> _selected = new();
+    private bool AllSelected => _rows.Count > 0 && _selected.Count == _rows.Count;
+    private void ToggleRow(FakturKeluaranRow row, bool value)
+    {
+        if (value) _selected.Add(row); else _selected.Remove(row);
+    }
+    private void ToggleAll(bool value)
+    {
+        if (value) foreach (var r in _rows) _selected.Add(r);
+        else _selected.Clear();
+    }
+
     // Header (read-only)
     private string docNum = "";
-    private string searchCode = "";
-    private string fromVal = "";
-    private string toVal = "";
+    private string docDate = "";
+    private string statusCode = "";
 
-    private string SearchByLabel => searchCode switch
+    private string StatusLabel => statusCode.Trim().ToUpperInvariant() switch
     {
-        "N" => "Invoice Number",
-        "D" => "Date",
-        "C" => "Customer",
-        _ => searchCode
+        "O" => "Open",
+        "C" => "Closed",
+        ""  => "",
+        _   => statusCode
     };
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -156,6 +192,7 @@
     private async Task LoadData()
     {
         loading = true;
+        _selected.Clear();
         StateHasChanged();
         await Task.Yield();
 
@@ -167,15 +204,16 @@
             await InvokeAsync(StateHasChanged);
             return;
         }
+        _docId = docId;
 
         var sql = $@"
-            SELECT h.DocNum, h.U_Search, h.U_FNum, h.U_TNum, h.U_FrCust, h.U_ToCust, h.U_FrDate, h.U_ToDate,
+            SELECT h.DocNum, h.CreateDate, h.Status,
                    d.U_EntryINV, d.U_NumINV, d.U_DateINV, d.U_BPCode, d.U_DocType, d.U_DTypeN, d.U_NoFP, d.U_BPName,
                    d.U_DocTotal, d.U_VatSum, d.U_Discount, d.U_DP, d.U_JDP, d.U_Status,
                    d.U_IDU_Pengganti, d.U_IDU_KetTambah, d.U_IDU_Referensi, d.U_IDU_JenisPajak,
                    d.U_IDU_NamaNPWP, d.U_IDU_AlmtNPWP, d.U_IDU_NPWP, d.U_IDU_NIK, d.U_IDU_KDP, d.U_IDU_RatePajak
             FROM IDU_PAJAK_TRANS h
-            JOIN IDU_PAJAK_TRANS_DET d ON h.DocEntry = d.DocEntry
+            LEFT JOIN IDU_PAJAK_TRANS_DET d ON h.DocEntry = d.DocEntry AND ISNULL(d.U_Status, '') <> 'N'
             WHERE h.DocEntry = {docId}
             ORDER BY d.LineId";
 
@@ -185,9 +223,10 @@
             error = result.Error;
         else
         {
-            Parse(result);
-            _notFound = _rows.Count == 0;   // DocEntry tidak ada di database
-            if (!_notFound) ComputeWidths();
+            // Not Found hanya bila HEADER tidak ada (LEFT JOIN -> minimal 1 baris
+            // saat header ada, walau seluruh detail ter-exclude/U_Status='N').
+            _notFound = result.Rows.Count == 0;
+            if (!_notFound) { Parse(result); ComputeWidths(); }
         }
 
         loading = false;
@@ -204,16 +243,12 @@
         {
             var h = r.Rows[0];
             docNum = Get(h, "DocNum")?.ToString() ?? "";
-            searchCode = Get(h, "U_Search")?.ToString() ?? "";
-            (fromVal, toVal) = searchCode switch
-            {
-                "D" => (FmtDate(Get(h, "U_FrDate")), FmtDate(Get(h, "U_ToDate"))),
-                "C" => (Get(h, "U_FrCust")?.ToString() ?? "", Get(h, "U_ToCust")?.ToString() ?? ""),
-                _   => (Get(h, "U_FNum")?.ToString() ?? "", Get(h, "U_TNum")?.ToString() ?? ""),
-            };
+            docDate = FmtDate(Get(h, "CreateDate"));
+            statusCode = Get(h, "Status")?.ToString() ?? "";
         }
 
-        _rows = r.Rows.Select(row => new FakturKeluaranRow
+        // Abaikan baris placeholder LEFT JOIN (tanpa detail: U_EntryINV null).
+        _rows = r.Rows.Where(row => Get(row, "U_EntryINV") is not null).Select(row => new FakturKeluaranRow
         {
             DocEntry   = ToInt(Get(row, "U_EntryINV")),
             DocNum     = ToInt(Get(row, "U_NumINV")),
@@ -251,6 +286,95 @@
         _ => null,
     };
     private static string FmtDate(object? v) => ToDate(v) is { } d ? d.ToString("dd.MM.yyyy") : "";
+
+    // Export CSV e-Faktur (item dari SAP B1, format seperti VB.NET).
+    private async Task ExportCsv()
+    {
+        if (_rows.Count == 0) return;
+        var (csv, err) = await Task.Run(() => CsvExport.BuildCsvAsync(_rows));
+        if (csv is not null)
+        {
+            var name = string.IsNullOrEmpty(docNum) ? "efaktur" : $"efaktur-{docNum}";
+            await JS.InvokeVoidAsync("downloadFile", $"{name}.csv", csv, "text/csv");
+        }
+        else
+        {
+            Notifications.Notify(new Radzen.NotificationMessage
+            {
+                Severity = Radzen.NotificationSeverity.Error, Summary = "Gagal export CSV",
+                Detail = err ?? "Error.", Duration = 8000
+            });
+        }
+    }
+
+    // Exclude faktur terpilih: set U_Status='N' di IDU_PAJAK_TRANS_DET,
+    // lalu reload grid agar kolom Status memperlihatkan perubahannya.
+    private async Task ExcludeSelected()
+    {
+        if (_selected.Count == 0) return;
+
+        var nums = string.Join(", ", _selected.Select(r => r.DocNum));
+        var confirmed = await DialogService.Confirm(
+            $"Apakah Yakin untuk Exclude {nums}", "Konfirmasi Exclude",
+            new Radzen.ConfirmOptions { OkButtonText = "Ya", CancelButtonText = "Batal" });
+        if (confirmed != true) return;
+
+        var keys = _selected.Select(r => (r.DocEntry, r.ObjType)).ToList();
+        var (ok, err, affected) = await Task.Run(() => WebDb.ExcludeDetailAsync(_docId, keys));
+
+        if (ok)
+        {
+            Notifications.Notify(new Radzen.NotificationMessage
+            {
+                Severity = Radzen.NotificationSeverity.Success,
+                Summary = "Exclude berhasil",
+                Detail = $"{affected} faktur di-set U_Status = 'N'.",
+                Duration = 5000
+            });
+            await LoadData();
+        }
+        else
+        {
+            Notifications.Notify(new Radzen.NotificationMessage
+            {
+                Severity = Radzen.NotificationSeverity.Error,
+                Summary = "Gagal exclude",
+                Detail = err ?? "Error.", Duration = 8000
+            });
+        }
+    }
+
+    // Cancel seluruh dokumen (aksi DB menyusul — menunggu spesifikasi).
+    private void CancelDocument()
+    {
+        Notifications.Notify(new Radzen.NotificationMessage
+        {
+            Severity = Radzen.NotificationSeverity.Info,
+            Summary = "Cancel Document",
+            Detail = $"Dokumen {docNum} akan dibatalkan.",
+            Duration = 5000
+        });
+    }
+
+    // Export XML e-Faktur Coretax (struktur TaxInvoiceBulk, seperti VB.NET).
+    private async Task ExportXml()
+    {
+        if (_rows.Count == 0) return;
+        var (xml, err) = await Task.Run(() => CsvExport.BuildXmlAsync(_rows));
+        if (xml is not null)
+        {
+            var name = string.IsNullOrEmpty(docNum) ? "efaktur" : $"efaktur-{docNum}";
+            await JS.InvokeVoidAsync("downloadFile", $"{name}.xml", xml, "application/xml");
+        }
+        else
+        {
+            Notifications.Notify(new Radzen.NotificationMessage
+            {
+                Severity = Radzen.NotificationSeverity.Error, Summary = "Gagal export XML",
+                Detail = err ?? "Error.", Duration = 8000
+            });
+        }
+    }
 
     // ── Lebar kolom otomatis (fit isi) ────────────────────────────────────────
     private readonly Dictionary<string, int> _colWidths = new();

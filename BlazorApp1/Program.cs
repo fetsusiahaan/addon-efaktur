@@ -22,6 +22,7 @@ builder.Services.AddRadzenComponents();
 builder.Services.AddScoped<SapQueryService>();
 builder.Services.AddScoped<PajakKeluaranService>();
 builder.Services.AddScoped<WebDbService>();
+builder.Services.AddScoped<EFakturExportService>();
 builder.Services.AddScoped<DbManagerService>();
 builder.Services.AddScoped<UserService>();
 
@@ -161,6 +162,5 @@ static bool IsNavigablePage(string path)
     return true;
 }
 
-// Tujuan default berdasar role: Admin -> dashboard, selain itu -> E-Faktur.
-static string DefaultFor(System.Security.Claims.ClaimsPrincipal user) =>
-    user.IsInRole("Admin") ? "/" : "/efaktur/pajak-masukan";
+// Tujuan default bila user login membuka /login: halaman Home (semua role).
+static string DefaultFor(System.Security.Claims.ClaimsPrincipal user) => "/";

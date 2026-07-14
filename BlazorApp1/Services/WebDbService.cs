@@ -80,14 +80,14 @@ public class WebDbService
     /// sekaligus sebagai TVP. Seluruh proses (generate DocEntry, insert header,
     /// insert detail, transaksi) berada di dalam Stored Procedure.
     /// </summary>
-    public async Task<(bool Ok, string? Error, int DocEntry)> SavePajakKeluaranAsync(
+    public async Task<(bool Ok, string? Error, int DocEntry, int DocNum)> SavePajakKeluaranAsync(
         PajakKeluaranHeader header, IReadOnlyList<FakturKeluaranRow> details, CancellationToken ct = default)
     {
         var cs = GetConnectionString();
         if (string.IsNullOrWhiteSpace(cs))
-            return (false, "Konfigurasi koneksi (WebDbConfig.json) belum diisi.", 0);
+            return (false, "Konfigurasi koneksi (WebDbConfig.json) belum diisi.", 0, 0);
         if (details.Count == 0)
-            return (false, "Tidak ada baris untuk disimpan.", 0);
+            return (false, "Tidak ada baris untuk disimpan.", 0, 0);
 
         try
         {
@@ -123,7 +123,61 @@ public class WebDbService
             await cmd.ExecuteNonQueryAsync(ct);
 
             var docEntry = pDocEntry.Value is int de ? de : 0;
-            return (true, null, docEntry);
+
+            // Ambil DocNum yang di-generate SP (untuk ditampilkan ke user).
+            int docNum = 0;
+            if (docEntry > 0)
+            {
+                await using var q = new SqlCommand(
+                    "SELECT DocNum FROM IDU_PAJAK_TRANS WHERE DocEntry = @de", conn);
+                q.Parameters.AddWithValue("@de", docEntry);
+                var val = await q.ExecuteScalarAsync(ct);
+                if (val is not null && val != DBNull.Value)
+                    int.TryParse(val.ToString(), out docNum);
+            }
+
+            return (true, null, docEntry, docNum);
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message, 0, 0);
+        }
+    }
+
+    /// <summary>
+    /// Exclude baris detail terpilih: set U_Status='N' pada IDU_PAJAK_TRANS_DET
+    /// untuk header DocEntry tertentu, dibatasi pasangan (U_EntryINV, U_DocType).
+    /// Invoice tsb jadi tersedia lagi untuk diproses di CreatePajakKeluaran.
+    /// </summary>
+    public async Task<(bool Ok, string? Error, int Affected)> ExcludeDetailAsync(
+        int docEntry, IReadOnlyList<(int EntryINV, int DocType)> keys, CancellationToken ct = default)
+    {
+        var cs = GetConnectionString();
+        if (string.IsNullOrWhiteSpace(cs))
+            return (false, "Konfigurasi koneksi (WebDbConfig.json) belum diisi.", 0);
+        if (keys.Count == 0)
+            return (false, "Tidak ada baris terpilih.", 0);
+
+        try
+        {
+            await using var conn = new SqlConnection(cs);
+            await using var cmd = new SqlCommand { Connection = conn, CommandTimeout = 60 };
+            cmd.Parameters.AddWithValue("@doc", docEntry);
+
+            var conds = new List<string>();
+            for (int i = 0; i < keys.Count; i++)
+            {
+                conds.Add($"(U_EntryINV = @e{i} AND U_DocType = @t{i})");
+                cmd.Parameters.AddWithValue($"@e{i}", keys[i].EntryINV);
+                cmd.Parameters.AddWithValue($"@t{i}", keys[i].DocType.ToString());
+            }
+            cmd.CommandText =
+                "UPDATE IDU_PAJAK_TRANS_DET SET U_Status = 'N' " +
+                $"WHERE DocEntry = @doc AND ({string.Join(" OR ", conds)})";
+
+            await conn.OpenAsync(ct);
+            var affected = await cmd.ExecuteNonQueryAsync(ct);
+            return (true, null, affected);
         }
         catch (Exception ex)
         {

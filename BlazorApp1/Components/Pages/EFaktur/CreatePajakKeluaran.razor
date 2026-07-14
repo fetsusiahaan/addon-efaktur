@@ -233,10 +233,6 @@
             </button>
             <button type="button" class="btn ef-btn-secondary">Cancel</button>
         </div>
-        <div class="d-flex gap-2">
-            <button type="button" class="btn ef-btn-ghost"><i class="bi bi-filetype-csv me-1"></i> Export CSV</button>
-            <button type="button" class="btn ef-btn-ghost"><i class="bi bi-filetype-xml me-1"></i> Export XML</button>
-        </div>
     </div>
 
 </div>
@@ -328,20 +324,41 @@
 
         _saving = true;
         var header = BuildHeader();
-        var (ok, err, docEntry) = await Task.Run(() => WebDb.SavePajakKeluaranAsync(header, chosen));
+        var (ok, err, docEntry, docNum) = await Task.Run(() => WebDb.SavePajakKeluaranAsync(header, chosen));
         _saving = false;
 
-        Notifications.Notify(new NotificationMessage
+        if (!ok)
         {
-            Severity = ok ? NotificationSeverity.Success : NotificationSeverity.Error,
-            Summary = ok ? "Tersimpan" : "Gagal menyimpan",
-            Detail = ok ? $"DocEntry {docEntry} tersimpan ({chosen.Count} baris)." : (err ?? "Error."),
-            Duration = ok ? 5000 : 9000
-        });
+            Notifications.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Gagal menyimpan",
+                Detail = err ?? "Error.",
+                Duration = 9000
+            });
+            return;
+        }
 
         // Muat ulang grid setelah tersimpan; baris yang baru disimpan
         // (U_Status='Y' di SAP_WEB) otomatis ter-exclude dari hasil Load.
-        if (ok) await LoadData();
+        await LoadData();
+
+        // Pop up berhasil dengan tombol menuju halaman detail (ShowPajakKeluaran).
+        ShowAddSuccess(docNum, docEntry);
+    }
+
+    // Modal sukses Add: teks + tombol "Show" yang membuka detail dokumen.
+    private void ShowAddSuccess(int docNum, int docEntry)
+    {
+        DialogService.Open("Berhasil", ds =>
+    @<div class="text-center p-2">
+        <p class="mb-3">
+            Berhasil di tambahkan dengan Dokumen Transaksi <strong>@docNum</strong>
+        </p>
+        <RadzenButton Text="Show" Icon="visibility" ButtonStyle="Radzen.ButtonStyle.Primary"
+                      Click="@(() => { ds.Close(); Nav.NavigateTo($"/efaktur/show-pajak-keluaran?doc={docEntry}"); })" />
+    </div>
+        , new DialogOptions { Width = "440px", ShowClose = true, CloseDialogOnOverlayClick = true });
     }
 
     private PajakKeluaranHeader BuildHeader()

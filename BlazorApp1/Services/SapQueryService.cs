@@ -86,8 +86,24 @@ public class SapQueryService
         return await ExecuteAsync(active, sql, ct);
     }
 
+    /// <summary>
+    /// Jalankan query APA ADANYA (tanpa auto-quote HANA). Untuk query yang
+    /// identifier-nya sudah dikutip manual (mis. export e-Faktur).
+    /// </summary>
+    public async Task<QueryResult> RunRawQueryAsync(string sql, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(sql))
+            return new QueryResult { Error = "Query kosong." };
+
+        var (active, connError) = await ResolveConnectionAsync();
+        if (active is null)
+            return new QueryResult { Error = connError };
+
+        return await ExecuteAsync(active, sql, ct, autoQuote: false);
+    }
+
     // Eksekusi query pada koneksi tertentu (jenis DB dari koneksi user).
-    private async Task<QueryResult> ExecuteAsync(DbConnectionEntry active, string sql, CancellationToken ct)
+    private async Task<QueryResult> ExecuteAsync(DbConnectionEntry active, string sql, CancellationToken ct, bool autoQuote = true)
     {
         var result = new QueryResult();
 
@@ -100,8 +116,9 @@ public class SapQueryService
         var isHana = active.JenisDb == "SAP HANA Database";
 
         // HANA case-sensitive: identifier polos harus dikutip dengan huruf
-        // persis. SQL Server tidak perlu diubah.
-        var effectiveSql = isHana ? QuoteIdentifiersForHana(sql) : sql;
+        // persis. SQL Server tidak perlu diubah. autoQuote=false bila query
+        // sudah dikutip manual.
+        var effectiveSql = (isHana && autoQuote) ? QuoteIdentifiersForHana(sql) : sql;
 
         try
         {

@@ -89,11 +89,8 @@
         Nav.NavigateTo(SafeReturnUrl() ?? Destination(user.Role));
     }
 
-    // Tujuan default berdasar role: Admin -> dashboard, selain itu -> E-Faktur.
-    private static string Destination(string? role) =>
-        string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)
-            ? "/"
-            : "/efaktur/pajak-masukan";
+    // Tujuan default setelah login: halaman Home (dapat diakses semua role).
+    private static string Destination(string? role) => "/";
 
     // Hanya izinkan ReturnUrl lokal (cegah open-redirect).
     private string? SafeReturnUrl()
