@@ -81,7 +81,8 @@ public class WebDbService
     /// insert detail, transaksi) berada di dalam Stored Procedure.
     /// </summary>
     public async Task<(bool Ok, string? Error, int DocEntry, int DocNum)> SavePajakKeluaranAsync(
-        PajakKeluaranHeader header, IReadOnlyList<FakturKeluaranRow> details, CancellationToken ct = default)
+        PajakKeluaranHeader header, IReadOnlyList<FakturKeluaranRow> details,
+        int userSign = 0, string? creator = null, CancellationToken ct = default)
     {
         var cs = GetConnectionString();
         if (string.IsNullOrWhiteSpace(cs))
@@ -111,6 +112,11 @@ public class WebDbService
             cmd.Parameters.AddWithValue("@ToCust", (object?)header.ToCust ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@FrDate", (object?)header.FromDate ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@ToDate", (object?)header.ToDate ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@UserSign", userSign > 0 ? userSign : (object)DBNull.Value);
+            // Creator NVARCHAR(25) -> potong bila username lebih panjang.
+            cmd.Parameters.AddWithValue("@Creator", string.IsNullOrWhiteSpace(creator)
+                ? DBNull.Value
+                : creator.Length > 25 ? creator[..25] : creator);
 
             // Table-Valued Parameter untuk baris detail.
             var pDetails = cmd.Parameters.AddWithValue("@Details", tvp);
@@ -146,8 +152,10 @@ public class WebDbService
 
     /// <summary>
     /// Exclude baris detail terpilih: set U_Status='N' pada IDU_PAJAK_TRANS_DET
-    /// untuk header DocEntry tertentu, dibatasi pasangan (U_EntryINV, U_DocType).
-    /// Invoice tsb jadi tersedia lagi untuk diproses di CreatePajakKeluaran.
+    /// untuk header DocEntry tertentu, dibatasi pasangan (U_EntryINV, U_DocType),
+    /// sekaligus mencatat waktu perubahan di header (UpdateDate = GETDATE()).
+    /// Keduanya dalam satu transaksi. Invoice yang di-exclude tersedia lagi
+    /// untuk diproses di CreatePajakKeluaran.
     /// </summary>
     public async Task<(bool Ok, string? Error, int Affected)> ExcludeDetailAsync(
         int docEntry, IReadOnlyList<(int EntryINV, int DocType)> keys, CancellationToken ct = default)
@@ -161,23 +169,42 @@ public class WebDbService
         try
         {
             await using var conn = new SqlConnection(cs);
-            await using var cmd = new SqlCommand { Connection = conn, CommandTimeout = 60 };
-            cmd.Parameters.AddWithValue("@doc", docEntry);
-
-            var conds = new List<string>();
-            for (int i = 0; i < keys.Count; i++)
-            {
-                conds.Add($"(U_EntryINV = @e{i} AND U_DocType = @t{i})");
-                cmd.Parameters.AddWithValue($"@e{i}", keys[i].EntryINV);
-                cmd.Parameters.AddWithValue($"@t{i}", keys[i].DocType.ToString());
-            }
-            cmd.CommandText =
-                "UPDATE IDU_PAJAK_TRANS_DET SET U_Status = 'N' " +
-                $"WHERE DocEntry = @doc AND ({string.Join(" OR ", conds)})";
-
             await conn.OpenAsync(ct);
-            var affected = await cmd.ExecuteNonQueryAsync(ct);
-            return (true, null, affected);
+            await using var tx = (SqlTransaction)await conn.BeginTransactionAsync(ct);
+
+            try
+            {
+                // 1. Detail: tandai baris terpilih sebagai excluded.
+                await using var cmd = new SqlCommand { Connection = conn, Transaction = tx, CommandTimeout = 60 };
+                cmd.Parameters.AddWithValue("@doc", docEntry);
+
+                var conds = new List<string>();
+                for (int i = 0; i < keys.Count; i++)
+                {
+                    conds.Add($"(U_EntryINV = @e{i} AND U_DocType = @t{i})");
+                    cmd.Parameters.AddWithValue($"@e{i}", keys[i].EntryINV);
+                    cmd.Parameters.AddWithValue($"@t{i}", keys[i].DocType.ToString());
+                }
+                cmd.CommandText =
+                    "UPDATE IDU_PAJAK_TRANS_DET SET U_Status = 'N' " +
+                    $"WHERE DocEntry = @doc AND ({string.Join(" OR ", conds)})";
+
+                var affected = await cmd.ExecuteNonQueryAsync(ct);
+
+                // 2. Header: catat waktu perubahan (dibaca sebagai "Last updated").
+                await using var hcmd = new SqlCommand(
+                    "UPDATE IDU_PAJAK_TRANS SET UpdateDate = GETDATE() WHERE DocEntry = @doc", conn, tx);
+                hcmd.Parameters.AddWithValue("@doc", docEntry);
+                await hcmd.ExecuteNonQueryAsync(ct);
+
+                await tx.CommitAsync(ct);
+                return (true, null, affected);
+            }
+            catch
+            {
+                await tx.RollbackAsync(ct);
+                throw;
+            }
         }
         catch (Exception ex)
         {

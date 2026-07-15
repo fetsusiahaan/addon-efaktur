@@ -50,11 +50,21 @@
                 <label class="ef-label">Document Date</label>
                 <input class="form-control" value="@docDate" readonly />
             </div>
+            @* Pindah baris agar Status Document sejajar di bawah Document Number. *@
+            <div class="w-100"></div>
             <div class="col-md-3">
                 <label class="ef-label">Status Document</label>
                 <input class="form-control" value="@StatusLabel" readonly />
             </div>
         </div>
+
+        @if (LastUpdatedText.Length > 0)
+        {
+            @* Abu-abu muted untuk teks sekunder (selaras dengan teks readonly UserEditDialog). *@
+            <div class="text-end mt-2" style="font-size:.80rem; color:#667085;">
+                @LastUpdatedText
+            </div>
+        }
     </div>
 
     @* ---------- Grid detail ---------- *@
@@ -94,7 +104,7 @@
                             ShowPagingSummary="true" PagingSummaryFormat="Halaman {0} dari {1} ({2} data)"
                             Density="Radzen.Density.Compact" GridLines="Radzen.DataGridGridLines.Horizontal"
                             EmptyText="Tidak ada data." class="dpk-grid"
-                            Style="height: 60vh;">
+                            Style="height: 65vh;">
                 <Columns>
                     <RadzenDataGridColumn TItem="FakturKeluaranRow" Width="46px" Sortable="false" Filterable="false"
                                           TextAlign="Radzen.TextAlign.Center">
@@ -171,6 +181,14 @@
     private string docNum = "";
     private string docDate = "";
     private string statusCode = "";
+    private DateTime? lastUpdated;
+    private string lastUpdatedBy = "";
+
+    // "Last updated : 12.08.2026 (21.00) - admin"
+    private string LastUpdatedText => lastUpdated is { } d
+        ? $"Last updated : {d:dd.MM.yyyy} ({d:HH.mm})" +
+          (string.IsNullOrEmpty(lastUpdatedBy) ? "" : $" - {lastUpdatedBy}")
+        : "";
 
     private string StatusLabel => statusCode.Trim().ToUpperInvariant() switch
     {
@@ -207,7 +225,7 @@
         _docId = docId;
 
         var sql = $@"
-            SELECT h.DocNum, h.CreateDate, h.Status,
+            SELECT h.DocNum, h.CreateDate, h.UpdateDate, h.Creator, h.Status,
                    d.U_EntryINV, d.U_NumINV, d.U_DateINV, d.U_BPCode, d.U_DocType, d.U_DTypeN, d.U_NoFP, d.U_BPName,
                    d.U_DocTotal, d.U_VatSum, d.U_Discount, d.U_DP, d.U_JDP, d.U_Status,
                    d.U_IDU_Pengganti, d.U_IDU_KetTambah, d.U_IDU_Referensi, d.U_IDU_JenisPajak,
@@ -245,6 +263,11 @@
             docNum = Get(h, "DocNum")?.ToString() ?? "";
             docDate = FmtDate(Get(h, "CreateDate"));
             statusCode = Get(h, "Status")?.ToString() ?? "";
+
+            // Last updated: UpdateDate, fallback ke CreateDate bila kosong.
+            // User pembuat diambil langsung dari kolom Creator (username).
+            lastUpdated = ToDate(Get(h, "UpdateDate")) ?? ToDate(Get(h, "CreateDate"));
+            lastUpdatedBy = Get(h, "Creator")?.ToString()?.Trim() ?? "";
         }
 
         // Abaikan baris placeholder LEFT JOIN (tanpa detail: U_EntryINV null).

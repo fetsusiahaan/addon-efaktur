@@ -4,6 +4,8 @@
 @using BlazorApp1.Models
 @using BlazorApp1.Services
 @using Radzen.Blazor
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
 @inject PajakKeluaranService FpService
 @inject WebDbService WebDb
 @inject NavigationManager Nav
@@ -324,7 +326,9 @@
 
         _saving = true;
         var header = BuildHeader();
-        var (ok, err, docEntry, docNum) = await Task.Run(() => WebDb.SavePajakKeluaranAsync(header, chosen));
+        var user = await CurrentUserAsync();   // -> kolom UserSign & Creator
+        var (ok, err, docEntry, docNum) = await Task.Run(
+            () => WebDb.SavePajakKeluaranAsync(header, chosen, user.Id, user.Name));
         _saving = false;
 
         if (!ok)
@@ -345,6 +349,22 @@
 
         // Pop up berhasil dengan tombol menuju halaman detail (ShowPajakKeluaran).
         ShowAddSuccess(docNum, docEntry);
+    }
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    // Id & Fullname user yang sedang login (kolom UserSign & Creator di header).
+    // Fullname dari claim "full_name"; fallback ke username bila kosong.
+    private async Task<(int Id, string Name)> CurrentUserAsync()
+    {
+        if (AuthState is null) return (0, "");
+        var state = await AuthState;
+        var id = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var fullName = state.User.FindFirst("full_name")?.Value;
+        var name = string.IsNullOrWhiteSpace(fullName)
+            ? state.User.Identity?.Name ?? ""
+            : fullName;
+        return (int.TryParse(id, out var uid) ? uid : 0, name);
     }
 
     // Modal sukses Add: teks + tombol "Show" yang membuka detail dokumen.

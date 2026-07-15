@@ -54,6 +54,8 @@ CREATE PROCEDURE dbo.usp_InsertPajakKeluaran
     @ToCust   NVARCHAR(50) = NULL,
     @FrDate   DATETIME     = NULL,
     @ToDate   DATETIME     = NULL,
+    @UserSign INT          = NULL,   -- Id user aplikasi yang membuat dokumen
+    @Creator  NVARCHAR(25) = NULL,   -- username pembuat dokumen (tampil di "Last updated")
     @Details  dbo.PajakKeluaranDetailType READONLY,
     @DocEntry INT OUTPUT
 AS
@@ -78,11 +80,11 @@ BEGIN
 
         -- Header
         INSERT INTO IDU_PAJAK_TRANS
-            (DocEntry, DocNum, Canceled, Status, CreateDate,
+            (DocEntry, DocNum, Canceled, Status, CreateDate, UserSign, Creator,
              U_Search, U_Format, U_FNum, U_TNum, U_FEntry, U_TEntry,
              U_FrCust, U_ToCust, U_FrDate, U_ToDate)
         VALUES
-            (@DocEntry, @DocNum, 'N', 'O', GETDATE(),
+            (@DocEntry, @DocNum, 'N', 'O', GETDATE(), @UserSign, @Creator,
              @Search, @Format, @FNum, @TNum, @FEntry, @TEntry,
              @FrCust, @ToCust, @FrDate, @ToDate);
 
