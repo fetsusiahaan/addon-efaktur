@@ -87,6 +87,12 @@
         {
             <div class="dpk-card-head">
                 <span class="dpk-card-title">Detail E-Faktur Keluaran</span>
+                @if (IsCanceled)
+                {
+                    <span class="ef-canceled-badge" title="Dokumen dibatalkan — hanya baca">
+                        <i class="bi bi-slash-circle me-1"></i> Dibatalkan
+                    </span>
+                }
                 <div class="dpk-card-tools">
                     <button type="button" class="dpk-filter-btn @(_showFilter ? "active" : "")"
                             @onclick="() => _showFilter = !_showFilter">
@@ -108,13 +114,14 @@
                 <Columns>
                     <RadzenDataGridColumn TItem="FakturKeluaranRow" Width="46px" Sortable="false" Filterable="false"
                                           TextAlign="Radzen.TextAlign.Center">
+                        @* Dokumen yang dibatalkan (Canceled='Y') -> grid read-only. *@
                         <HeaderTemplate>
                             <input type="checkbox" title="Pilih semua"
-                                   checked="@AllSelected"
+                                   checked="@AllSelected" disabled="@IsCanceled"
                                    @onchange="e => ToggleAll((bool)(e.Value ?? false))" />
                         </HeaderTemplate>
                         <Template Context="row">
-                            <input type="checkbox" checked="@_selected.Contains(row)"
+                            <input type="checkbox" checked="@_selected.Contains(row)" disabled="@IsCanceled"
                                    @onchange="e => ToggleRow(row, (bool)(e.Value ?? false))" />
                         </Template>
                     </RadzenDataGridColumn>
@@ -133,10 +140,12 @@
     @* ---------- Bar Aksi ---------- *@
     <div class="ef-actionbar">
         <div class="d-flex gap-2">
-            <button type="button" class="btn ef-btn-ghost" @onclick="ExcludeSelected" disabled="@(_selected.Count == 0)">
+            <button type="button" class="btn ef-btn-ghost" @onclick="ExcludeSelected"
+                    disabled="@(_selected.Count == 0 || IsCanceled)">
                 <i class="bi bi-x-circle me-1"></i> Exclude
             </button>
-            <button type="button" class="btn ef-btn-ghost" @onclick="CancelDocument" disabled="@(_rows.Count == 0)">
+            <button type="button" class="btn ef-btn-danger" @onclick="CancelDocument"
+                    disabled="@(_canceling || IsCanceled)">
                 <i class="bi bi-slash-circle me-1"></i> Cancel Document
             </button>
         </div>
@@ -156,9 +165,14 @@
     // string agar nilai non-angka tidak menyebabkan error binding; diparse manual.
     [SupplyParameterFromQuery] public string? Doc { get; set; }
 
+    // Pengaman URL: halaman hanya terbuka bila uuid cocok dengan DocEntry-nya,
+    // sehingga dokumen lain tak bisa dibuka dengan menebak angka doc.
+    [SupplyParameterFromQuery] public string? Uuid { get; set; }
+
     private bool loading = true;
     private bool _loaded;
     private int _docId;
+    private Guid _docUuid;
     private bool _showFilter;
     private bool _notFound;
     private string? error;
@@ -181,8 +195,12 @@
     private string docNum = "";
     private string docDate = "";
     private string statusCode = "";
+    private string canceledFlag = "";
     private DateTime? lastUpdated;
     private string lastUpdatedBy = "";
+    private bool _canceling;
+
+    private bool IsCanceled => canceledFlag.Trim().ToUpperInvariant() == "Y";
 
     // "Last updated : 12.08.2026 (21.00) - admin"
     private string LastUpdatedText => lastUpdated is { } d
@@ -214,8 +232,9 @@
         StateHasChanged();
         await Task.Yield();
 
-        // Doc harus angka (DocEntry). Bukan angka -> anggap tidak ditemukan.
-        if (!int.TryParse(Doc, out var docId))
+        // Doc harus angka (DocEntry) DAN uuid harus GUID yang valid.
+        // Keduanya wajib; bila salah satu tidak valid -> anggap tidak ditemukan.
+        if (!int.TryParse(Doc, out var docId) || !Guid.TryParse(Uuid, out var docUuid))
         {
             _notFound = true;
             loading = false;
@@ -223,16 +242,17 @@
             return;
         }
         _docId = docId;
+        _docUuid = docUuid;
 
         var sql = $@"
-            SELECT h.DocNum, h.CreateDate, h.UpdateDate, h.Creator, h.Status,
+            SELECT h.DocNum, h.CreateDate, h.UpdateDate, h.Creator, h.Status, h.Canceled,
                    d.U_EntryINV, d.U_NumINV, d.U_DateINV, d.U_BPCode, d.U_DocType, d.U_DTypeN, d.U_NoFP, d.U_BPName,
                    d.U_DocTotal, d.U_VatSum, d.U_Discount, d.U_DP, d.U_JDP, d.U_Status,
                    d.U_IDU_Pengganti, d.U_IDU_KetTambah, d.U_IDU_Referensi, d.U_IDU_JenisPajak,
                    d.U_IDU_NamaNPWP, d.U_IDU_AlmtNPWP, d.U_IDU_NPWP, d.U_IDU_NIK, d.U_IDU_KDP, d.U_IDU_RatePajak
             FROM IDU_PAJAK_TRANS h
             LEFT JOIN IDU_PAJAK_TRANS_DET d ON h.DocEntry = d.DocEntry AND ISNULL(d.U_Status, '') <> 'N'
-            WHERE h.DocEntry = {docId}
+            WHERE h.DocEntry = {docId} AND h.uuid = '{docUuid:D}'
             ORDER BY d.LineId";
 
         var result = await Task.Run(() => WebDb.RunQueryAsync(sql));
@@ -263,6 +283,7 @@
             docNum = Get(h, "DocNum")?.ToString() ?? "";
             docDate = FmtDate(Get(h, "CreateDate"));
             statusCode = Get(h, "Status")?.ToString() ?? "";
+            canceledFlag = Get(h, "Canceled")?.ToString() ?? "";
 
             // Last updated: UpdateDate, fallback ke CreateDate bila kosong.
             // User pembuat diambil langsung dari kolom Creator (username).
@@ -367,16 +388,40 @@
         }
     }
 
-    // Cancel seluruh dokumen (aksi DB menyusul — menunggu spesifikasi).
-    private void CancelDocument()
+    // Batalkan dokumen: set Canceled='Y' di IDU_PAJAK_TRANS (+ catat UpdateDate).
+    private async Task CancelDocument()
     {
-        Notifications.Notify(new Radzen.NotificationMessage
+        if (_canceling || IsCanceled) return;
+
+        var confirmed = await DialogService.Confirm(
+            $"Apakah Yakin Canceled Document : {docNum}", "Konfirmasi Cancel Document",
+            new Radzen.ConfirmOptions { OkButtonText = "Ya", CancelButtonText = "Batal" });
+        if (confirmed != true) return;
+
+        _canceling = true;
+        var (ok, err) = await Task.Run(() => WebDb.CancelDocumentAsync(_docId));
+        _canceling = false;
+
+        if (ok)
         {
-            Severity = Radzen.NotificationSeverity.Info,
-            Summary = "Cancel Document",
-            Detail = $"Dokumen {docNum} akan dibatalkan.",
-            Duration = 5000
-        });
+            Notifications.Notify(new Radzen.NotificationMessage
+            {
+                Severity = Radzen.NotificationSeverity.Success,
+                Summary = "Dokumen dibatalkan",
+                Detail = $"Dokumen {docNum} di-set Canceled = 'Y'.",
+                Duration = 5000
+            });
+            await LoadData();
+        }
+        else
+        {
+            Notifications.Notify(new Radzen.NotificationMessage
+            {
+                Severity = Radzen.NotificationSeverity.Error,
+                Summary = "Gagal membatalkan dokumen",
+                Detail = err ?? "Error.", Duration = 8000
+            });
+        }
     }
 
     // Export XML e-Faktur Coretax (struktur TaxInvoiceBulk, seperti VB.NET).

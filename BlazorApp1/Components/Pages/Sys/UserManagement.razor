@@ -23,17 +23,17 @@
                 <input placeholder="Search" value="@_search" @oninput="OnSearch" />
             </div>
 
-            <select class="um-filter" @bind="_role">
+            <select class="um-filter" @bind="_role" @bind:after="ResetPage">
                 <option value="">Role</option>
                 @foreach (var r in RoleOptions) { <option value="@r">@r</option> }
             </select>
 
-            <select class="um-filter" @bind="_status">
+            <select class="um-filter" @bind="_status" @bind:after="ResetPage">
                 <option value="">Status</option>
                 @foreach (var s in StatusOptions) { <option value="@s">@s</option> }
             </select>
 
-            <select class="um-filter" @bind="_dateRange">
+            <select class="um-filter" @bind="_dateRange" @bind:after="ResetPage">
                 <option value="">Date</option>
                 <option value="7">Last 7 days</option>
                 <option value="30">Last 30 days</option>
@@ -47,9 +47,9 @@
         </div>
 
         @* ---------- Grid ---------- *@
-        <RadzenDataGrid Data="@Filtered" TItem="AppUser" AllowPaging="true" PageSize="10"
-                        PageSizeOptions="@_pageSizes" AllowSorting="true" ShowPagingSummary="true"
-                        PagingSummaryFormat="of {2} rows" PagerHorizontalAlign="Radzen.HorizontalAlign.Right"
+        @* Paging ditangani manual (lihat .um-pager di bawah) supaya kontrol
+           "items per page" bisa custom & posisinya presisi meski ada CSS zoom. *@
+        <RadzenDataGrid Data="@Paged" TItem="AppUser" AllowPaging="false" AllowSorting="true"
                         Style="height: 68vh; --rz-grid-header-background-color:#1f2d3d; --rz-grid-header-color:#fff;">
             <Columns>
                 <RadzenDataGridColumn TItem="AppUser" Width="46px" Sortable="false" TextAlign="Radzen.TextAlign.Center">
@@ -91,6 +91,59 @@
                 </RadzenDataGridColumn>
             </Columns>
         </RadzenDataGrid>
+
+        @* ---------- Pager custom ---------- *@
+        <div class="um-pager">
+            <span class="um-pager-summary">of @TotalRows rows</span>
+
+            <div class="um-pager-nav">
+                <button type="button" class="um-page-btn" title="Halaman pertama"
+                        disabled="@(_pageIndex == 0)" @onclick="() => GoTo(0)">
+                    <i class="bi bi-chevron-bar-left"></i>
+                </button>
+                <button type="button" class="um-page-btn" title="Sebelumnya"
+                        disabled="@(_pageIndex == 0)" @onclick="() => GoTo(_pageIndex - 1)">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+
+                @foreach (var p in PageNumbers)
+                {
+                    <button type="button" class="um-page-btn um-page-num @(p == _pageIndex ? "active" : "")"
+                            @onclick="() => GoTo(p)">@(p + 1)</button>
+                }
+
+                <button type="button" class="um-page-btn" title="Berikutnya"
+                        disabled="@(_pageIndex >= PageCount - 1)" @onclick="() => GoTo(_pageIndex + 1)">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+                <button type="button" class="um-page-btn" title="Halaman terakhir"
+                        disabled="@(_pageIndex >= PageCount - 1)" @onclick="() => GoTo(PageCount - 1)">
+                    <i class="bi bi-chevron-bar-right"></i>
+                </button>
+            </div>
+
+            @* Dropdown custom: menu dibuka KE ATAS, diposisikan relatif ke
+               kontainernya (bukan di-append ke body) -> presisi meski ada zoom. *@
+            <div class="um-ps @(_pageSizeOpen ? "open" : "")">
+                @if (_pageSizeOpen)
+                {
+                    <div class="um-ps-backdrop" @onclick="() => _pageSizeOpen = false"></div>
+                    <div class="um-ps-menu">
+                        @foreach (var n in _pageSizes)
+                        {
+                            <button type="button" class="um-ps-item @(n == _pageSize ? "active" : "")"
+                                    @onclick="() => SelectPageSize(n)">@n</button>
+                        }
+                    </div>
+                }
+                <button type="button" class="um-ps-btn" @onclick="TogglePageSize">
+                    <span>@_pageSize</span>
+                    <i class="bi bi-chevron-down"></i>
+                </button>
+            </div>
+
+            <span class="um-pager-label">items per page</span>
+        </div>
     </div>
 </div>
 
@@ -98,6 +151,40 @@
     private List<AppUser> _all = new();
     private readonly HashSet<int> _selected = new();
     private readonly int[] _pageSizes = { 10, 20, 50 };
+    private int _pageSize = 10;
+    private int _pageIndex;
+    private bool _pageSizeOpen;
+
+    // ── Paging manual ───────────────────────────────────────────────────────
+    private int TotalRows => Filtered.Count();
+    private int PageCount => Math.Max(1, (int)Math.Ceiling(TotalRows / (double)_pageSize));
+
+    // Baris untuk halaman aktif; index di-clamp agar aman saat filter menyusut.
+    private IEnumerable<AppUser> Paged
+    {
+        get
+        {
+            if (_pageIndex > PageCount - 1) _pageIndex = PageCount - 1;
+            return Filtered.Skip(_pageIndex * _pageSize).Take(_pageSize);
+        }
+    }
+
+    // Jendela maksimal 5 nomor halaman di sekitar halaman aktif.
+    private IEnumerable<int> PageNumbers
+    {
+        get
+        {
+            var count = PageCount;
+            var start = Math.Max(0, Math.Min(_pageIndex - 2, count - 5));
+            for (var i = start; i < Math.Min(count, start + 5); i++) yield return i;
+        }
+    }
+
+    private void GoTo(int p) => _pageIndex = Math.Clamp(p, 0, PageCount - 1);
+    private void ResetPage() => _pageIndex = 0;
+
+    private void TogglePageSize() => _pageSizeOpen = !_pageSizeOpen;
+    private void SelectPageSize(int n) { _pageSize = n; _pageSizeOpen = false; _pageIndex = 0; }
 
     private string _search = "";
     private string _role = "";
@@ -134,7 +221,11 @@
         }
     }
 
-    private void OnSearch(ChangeEventArgs e) => _search = e.Value?.ToString() ?? "";
+    private void OnSearch(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? "";
+        ResetPage();
+    }
 
     // ── Seleksi ─────────────────────────────────────────────────────────────
     private bool AllSelected => Filtered.Any() && Filtered.All(u => _selected.Contains(u.Id));

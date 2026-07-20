@@ -57,7 +57,8 @@ CREATE PROCEDURE dbo.usp_InsertPajakKeluaran
     @UserSign INT          = NULL,   -- Id user aplikasi yang membuat dokumen
     @Creator  NVARCHAR(25) = NULL,   -- username pembuat dokumen (tampil di "Last updated")
     @Details  dbo.PajakKeluaranDetailType READONLY,
-    @DocEntry INT OUTPUT
+    @DocEntry INT OUTPUT,
+    @Uuid     UNIQUEIDENTIFIER = NULL OUTPUT   -- pengaman URL halaman detail
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -78,13 +79,15 @@ BEGIN
         FROM IDU_PAJAK_TRANS
         WHERE DocNum >= @prefix AND DocNum < @prefix + 100000;
 
+        SET @Uuid = NEWID();
+
         -- Header
         INSERT INTO IDU_PAJAK_TRANS
-            (DocEntry, DocNum, Canceled, Status, CreateDate, UserSign, Creator,
+            (DocEntry, DocNum, Canceled, Status, CreateDate, UserSign, Creator, uuid,
              U_Search, U_Format, U_FNum, U_TNum, U_FEntry, U_TEntry,
              U_FrCust, U_ToCust, U_FrDate, U_ToDate)
         VALUES
-            (@DocEntry, @DocNum, 'N', 'O', GETDATE(), @UserSign, @Creator,
+            (@DocEntry, @DocNum, 'N', 'O', GETDATE(), @UserSign, @Creator, @Uuid,
              @Search, @Format, @FNum, @TNum, @FEntry, @TEntry,
              @FrCust, @ToCust, @FrDate, @ToDate);
 

@@ -52,6 +52,136 @@
     cursor: pointer;
 }
 
+/* ---------- Pager custom (menggantikan pager Radzen) ---------- */
+.um-pager {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .55rem 1rem;
+    border-top: 1px solid #eef1f4;
+    background: #fff;
+    font-size: .8rem;
+    color: #475467;
+}
+
+.um-pager-summary {
+    margin-right: auto;
+}
+
+.um-pager-nav {
+    display: flex;
+    align-items: center;
+    gap: .15rem;
+}
+
+.um-page-btn {
+    min-width: 1.9rem;
+    height: 1.9rem;
+    padding: 0 .35rem;
+    border: 0;
+    background: transparent;
+    border-radius: 999px;
+    color: #475467;
+    font-size: .8rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.um-page-btn:hover:not(:disabled) {
+    background: #f1f5f9;
+}
+
+.um-page-btn:disabled {
+    color: #cbd5e1;
+    cursor: default;
+}
+
+.um-page-num.active {
+    background: #ede9fe;
+    color: #4c1d95;
+    font-weight: 600;
+}
+
+.um-pager-label {
+    color: #667085;
+}
+
+/* ---------- Page-size dropdown (custom, zoom-safe) ---------- */
+.um-ps {
+    position: relative;
+}
+
+.um-ps-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    min-width: 4.2rem;
+    padding: .3rem .55rem;
+    border: 1px solid #4f46e5;
+    border-radius: 8px;
+    background: #fff;
+    color: #1f2d3d;
+    font-size: .8rem;
+    cursor: pointer;
+}
+
+.um-ps-btn i {
+    font-size: .68rem;
+    color: #4f46e5;
+    transition: transform .15s ease;
+}
+
+.um-ps.open .um-ps-btn i {
+    transform: rotate(180deg);
+}
+
+/* Menu dibuka KE ATAS & diposisikan relatif ke .um-ps
+   (bukan di-append ke body) -> selalu presisi. */
+.um-ps-menu {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 0;
+    min-width: 100%;
+    background: #fff;
+    border: 1px solid #e3e6ea;
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(16, 24, 40, .14);
+    padding: .25rem;
+    z-index: 30;
+}
+
+.um-ps-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: 0;
+    background: transparent;
+    padding: .38rem .6rem;
+    font-size: .8rem;
+    color: #475467;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.um-ps-item:hover {
+    background: #f1f5f9;
+}
+
+.um-ps-item.active {
+    background: #ede9fe;
+    color: #4c1d95;
+    font-weight: 600;
+}
+
+/* Penangkap klik di luar menu untuk menutup. */
+.um-ps-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: transparent;
+}
+
 .um-toolbar-right {
     margin-left: auto;
     display: flex;

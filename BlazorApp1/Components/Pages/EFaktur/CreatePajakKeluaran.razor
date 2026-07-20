@@ -327,7 +327,7 @@
         _saving = true;
         var header = BuildHeader();
         var user = await CurrentUserAsync();   // -> kolom UserSign & Creator
-        var (ok, err, docEntry, docNum) = await Task.Run(
+        var (ok, err, docEntry, docNum, uuid) = await Task.Run(
             () => WebDb.SavePajakKeluaranAsync(header, chosen, user.Id, user.Name));
         _saving = false;
 
@@ -348,7 +348,7 @@
         await LoadData();
 
         // Pop up berhasil dengan tombol menuju halaman detail (ShowPajakKeluaran).
-        ShowAddSuccess(docNum, docEntry);
+        ShowAddSuccess(docNum, docEntry, uuid);
     }
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
@@ -368,7 +368,7 @@
     }
 
     // Modal sukses Add: teks + tombol "Show" yang membuka detail dokumen.
-    private void ShowAddSuccess(int docNum, int docEntry)
+    private void ShowAddSuccess(int docNum, int docEntry, Guid uuid)
     {
         DialogService.Open("Berhasil", ds =>
     @<div class="text-center p-2">
@@ -376,7 +376,7 @@
             Berhasil di tambahkan dengan Dokumen Transaksi <strong>@docNum</strong>
         </p>
         <RadzenButton Text="Show" Icon="visibility" ButtonStyle="Radzen.ButtonStyle.Primary"
-                      Click="@(() => { ds.Close(); Nav.NavigateTo($"/efaktur/show-pajak-keluaran?doc={docEntry}"); })" />
+                      Click="@(() => { ds.Close(); Nav.NavigateTo($"/efaktur/show-pajak-keluaran?doc={docEntry}&uuid={uuid:D}"); })" />
     </div>
         , new DialogOptions { Width = "440px", ShowClose = true, CloseDialogOnOverlayClick = true });
     }

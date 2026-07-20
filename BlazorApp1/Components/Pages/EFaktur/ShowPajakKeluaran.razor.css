@@ -219,6 +219,41 @@
     color: #344054;
 }
 
+/* Penanda dokumen dibatalkan (grid jadi read-only) */
+.ef-page .ef-canceled-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: .6rem;
+    padding: .1rem .5rem;
+    border: 1px solid #fecdca;
+    border-radius: 999px;
+    background: #fef3f2;
+    color: #b42318;
+    font-size: .72rem;
+    font-weight: 600;
+}
+
+/* Aksi destruktif (Cancel Document) */
+.ef-page .ef-btn-danger {
+    background: #d92d20;
+    color: #fff;
+    border: 1px solid #d92d20;
+    font-size: .9rem;
+}
+
+.ef-page .ef-btn-danger:hover:not(:disabled) {
+    background: #b42318;
+    border-color: #b42318;
+    color: #fff;
+}
+
+.ef-page .ef-btn-danger:disabled {
+    background: #e9a19b;
+    border-color: #e9a19b;
+    color: #fff;
+    opacity: 1;
+}
+
 .ef-page .ef-actionbar {
     display: flex;
     justify-content: space-between;

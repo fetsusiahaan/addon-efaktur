@@ -95,29 +95,38 @@ public class EFakturExportService
 
                 // Hitung per baris: DPP + PPN "sebenarnya" (belum dibulatkan).
                 var tmp = new List<(string Code, string Desc, decimal Price, decimal Qty, decimal Bef, decimal Disc, decimal Dpp, decimal TruePpn)>();
-                decimal sumTruePpn = 0;
                 foreach (var l in lines)
                 {
                     var bef = Math.Floor(l.LineTotal);
                     var disc = sumLine == 0 ? 0 : Math.Floor(r.Discount * (l.LineTotal / sumLine));
                     var dpp = bef - disc;
                     var truePpn = dpp * rate / 100m;
-                    sumTruePpn += truePpn;
                     tmp.Add((l.ItemCode ?? "000000", l.Desc ?? "", l.Price, l.Qty, bef, disc, dpp, truePpn));
                 }
 
                 totalDpp = tmp.Sum(t => t.Dpp);
-                totalPpn = Math.Floor(sumTruePpn);   // PPN header = FLOOR(Σ PPN sebenarnya)
 
-                // PPN per baris = FLOOR(PPN sebenarnya); baris TERAKHIR menyerap
-                // selisih pembulatan agar Σ PPN baris = PPN header (seperti VB.NET).
-                decimal accum = 0;
-                for (var i = 0; i < tmp.Count; i++)
+                // ── Penyerapan pembulatan baris terakhir DIMATIKAN (permintaan) ──
+                // Tiap baris PPN = FLOOR(PPN sebenarnya), dan PPN header = Σ PPN baris
+                // (tetap konsisten: Σ PPN OF = JUMLAH_PPN). Versi lama disimpan bila
+                // perlu diaktifkan lagi:
+                //
+                //   totalPpn = Math.Floor(tmp.Sum(t => t.TruePpn));   // FLOOR(Σ PPN sebenarnya)
+                //   decimal accum = 0;
+                //   for (var i = 0; i < tmp.Count; i++)
+                //   {
+                //       var t = tmp[i];
+                //       decimal ppn;
+                //       if (i < tmp.Count - 1) { ppn = Math.Floor(t.TruePpn); accum += ppn; }
+                //       else { ppn = totalPpn - accum; }   // baris terakhir menyerap selisih
+                //       ofRows.Add((t.Code, t.Desc, t.Price, t.Qty, t.Bef, t.Disc, t.Dpp, ppn));
+                //   }
+                // ─────────────────────────────────────────────────────────────────
+                totalPpn = 0;
+                foreach (var t in tmp)
                 {
-                    var t = tmp[i];
-                    decimal ppn;
-                    if (i < tmp.Count - 1) { ppn = Math.Floor(t.TruePpn); accum += ppn; }
-                    else { ppn = totalPpn - accum; }
+                    var ppn = Math.Floor(t.TruePpn);
+                    totalPpn += ppn;
                     ofRows.Add((t.Code, t.Desc, t.Price, t.Qty, t.Bef, t.Disc, t.Dpp, ppn));
                 }
             }
@@ -142,7 +151,9 @@ public class EFakturExportService
               .Append(Digits(r.NoFP)).Append(',')
               .Append(masa).Append(',').Append(tahun).Append(',').Append(tgl).Append(',')
               .Append(Q(Digits(r.NPWP))).Append(',')
-              .Append(CommaClean(r.NamaNPWP ?? r.CardName)).Append(',')
+              // NAMA dikosongkan agar sama dengan output VB.NET.
+              // (dulu: CommaClean(r.NamaNPWP ?? r.CardName))
+              .Append(',')
               .Append(Q(CommaClean(r.AlamatNPWP))).Append(',')
               .Append(Int(totalDpp)).Append(',').Append(Int(totalPpn)).Append(",0,")
               .Append(Q(CommaClean(r.KetTambah))).Append(",0,0,0,0,")
@@ -150,8 +161,9 @@ public class EFakturExportService
               .Append(r.KDP).Append(',').Append(r.NIK);
             sb.AppendLine();
 
-            // FAPR
-            sb.Append("FAPR,").Append(cName).Append(",").Append(Q(cAddr)).Append(',')
+            // FAPR — prefix DIKOSONGKAN agar sama dengan output VB.NET
+            // (VB memakai setting FAPR=empty; dulu prefix di sini "FAPR,").
+            sb.Append(',').Append(cName).Append(',').Append(Q(cAddr)).Append(',')
               .Append(cSigner).Append(',').Append(cCity).Append(",,,,,,,,,,,,,,,,");
             sb.AppendLine();
 
@@ -290,7 +302,9 @@ public class EFakturExportService
         var settings = new XmlWriterSettings
         {
             Indent = true,
-            Encoding = new UTF8Encoding(false),
+            // encoderShouldEmitUTF8Identifier: true -> tulis BOM UTF-8 (EF BB BF)
+            // di awal stream, sama seperti output VB.NET.
+            Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true),
             ConformanceLevel = ConformanceLevel.Auto,
         };
 
@@ -395,6 +409,9 @@ public class EFakturExportService
             w.WriteEndDocument();
         }
 
+        // GetString TIDAK membuang BOM: byte EF BB BF di awal stream terbaca jadi
+        // karakter U+FEFF, lalu Blob di sisi JS meng-encode-nya kembali menjadi
+        // EF BB BF -> file .xml yang terunduh tetap ber-BOM UTF-8.
         return (new UTF8Encoding(false).GetString(ms.ToArray()), null);
     }
 
@@ -410,28 +427,50 @@ public class EFakturExportService
         if (lineMap.TryGetValue(r.DocEntry, out var lines) && lines.Count > 0)
         {
             var sumLine = lines.Sum(l => l.LineTotal);
-            // DPP header (di luar 07/08) untuk penyerapan pembulatan baris terakhir.
-            var headerDpp = Math.Floor(r.DocTotal - r.VatSum + r.Discount);
 
-            var tmp = new List<(XmlLine L, decimal Bef, decimal Disc)>();
+            // ── NONAKTIF ────────────────────────────────────────────────────────
+            // Versi lama: baris TERAKHIR menyerap selisih pembulatan agar
+            // Σ Total DPP = DPP header (U_DocTotal - U_VatSum + U_Discount dari
+            // SAP_WEB), meniru SP __IDUFAKTURPAJAK_EFAKTUR. Diganti dengan
+            // FLOOR(INV1.LineTotal) apa adanya. Disimpan bila perlu diaktifkan lagi.
+            //
+            //   var headerDpp = Math.Floor(r.DocTotal - r.VatSum + r.Discount);
+            //
+            //   var tmp = new List<(XmlLine L, decimal Bef, decimal Disc)>();
+            //   foreach (var l in lines)
+            //   {
+            //       var bef = Math.Floor(l.LineTotal);
+            //       var disc = sumLine == 0 ? 0 : Math.Floor(r.Discount * (l.LineTotal / sumLine));
+            //       if (disc < 0) disc = 0;
+            //       tmp.Add((l, bef, disc));
+            //   }
+            //
+            //   var sumBef = tmp.Sum(t => t.Bef);
+            //   for (var i = 0; i < tmp.Count; i++)
+            //   {
+            //       var (l, bef, disc) = tmp[i];
+            //       var totalDpp = bef;
+            //       if (i == tmp.Count - 1 && sumBef != headerDpp && jenis != "07" && jenis != "08")
+            //           totalDpp = bef + (headerDpp - sumBef);
+            //
+            //       var aftdisc = bef - disc;
+            //       var (taxBase, otherTaxBase, vat) = TaxValues(jenis, totalDpp, aftdisc, l.LineTotal, l.VatPrcnt);
+            //       result.Add(new GoodRow(
+            //           l.DocType == "S" ? "B" : "A",
+            //           l.Desc ?? "", l.Unit ?? "",
+            //           l.Price, l.Qty, disc, taxBase, otherTaxBase, vat));
+            //   }
+            // ────────────────────────────────────────────────────────────────────
+
             foreach (var l in lines)
             {
-                var bef = Math.Floor(l.LineTotal);
+                // Total DPP baris = FLOOR(INV1.LineTotal) apa adanya, tanpa
+                // penyesuaian pembulatan di baris terakhir.
+                var totalDpp = Math.Floor(l.LineTotal);
                 var disc = sumLine == 0 ? 0 : Math.Floor(r.Discount * (l.LineTotal / sumLine));
                 if (disc < 0) disc = 0;
-                tmp.Add((l, bef, disc));
-            }
+                var aftdisc = totalDpp - disc;
 
-            var sumBef = tmp.Sum(t => t.Bef);
-            for (var i = 0; i < tmp.Count; i++)
-            {
-                var (l, bef, disc) = tmp[i];
-                // Total DPP baris; baris terakhir menyerap selisih agar Σ = DPP header.
-                var totalDpp = bef;
-                if (i == tmp.Count - 1 && sumBef != headerDpp && jenis != "07" && jenis != "08")
-                    totalDpp = bef + (headerDpp - sumBef);
-
-                var aftdisc = bef - disc;
                 var (taxBase, otherTaxBase, vat) = TaxValues(jenis, totalDpp, aftdisc, l.LineTotal, l.VatPrcnt);
                 result.Add(new GoodRow(
                     l.DocType == "S" ? "B" : "A",

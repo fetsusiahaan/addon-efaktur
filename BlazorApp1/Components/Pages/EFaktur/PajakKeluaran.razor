@@ -70,11 +70,12 @@
                         </Template>
                     </RadzenDataGridColumn>
 
-                    @* Kolom dinamis dari hasil query *@
+                    @* Kolom dinamis dari hasil query (uuid disembunyikan) *@
                     @for (var i = 0; i < _columns.Count; i++)
                     {
                         var col = i;                         // capture index
                         var name = _columns[i];
+                        if (col == _uuidIndex) { continue; }
                         var numeric = _numericCols.Contains(col);
                         <RadzenDataGridColumn TItem="object[]"
                                               Width="@WidthOf(col)"
@@ -130,10 +131,12 @@
     private readonly HashSet<int> _numericCols = new();
     private readonly List<int> _colWidths = new();                  // lebar tetap per kolom (px), fit isi
     private int _docEntryIndex = -1;
+    private int _uuidIndex = -1;
 
     // Daftar transaksi Pajak Keluaran tersimpan (dari SAP_WEB, header yang belum dibatalkan).
+    // uuid ikut diambil (dipakai membentuk URL detail), tapi disembunyikan dari grid.
     private const string Sql =
-        "SELECT DocEntry, DocNum, CreateDate, U_Format FROM IDU_PAJAK_TRANS WHERE Canceled = 'N'";
+        "SELECT DocEntry, DocNum, CreateDate, U_Format, uuid FROM IDU_PAJAK_TRANS WHERE Canceled = 'N'";
 
     // Muat data SETELAH render pertama (di circuit), bukan saat prerender,
     // agar halaman tampil cepat dan tidak menunggu query DB.
@@ -158,6 +161,7 @@
         _sortCol = -1;
         _sortAsc = true;
         _docEntryIndex = -1;
+        _uuidIndex = -1;
         StateHasChanged();
         await Task.Yield();
 
@@ -174,6 +178,7 @@
             for (var c = 0; c < _columns.Count; c++)
             {
                 if (_columns[c].Equals("DocEntry", StringComparison.OrdinalIgnoreCase)) _docEntryIndex = c;
+                if (_columns[c].Equals("uuid", StringComparison.OrdinalIgnoreCase)) _uuidIndex = c;
 
                 var sample = _rows.Select(r => r.Length > c ? r[c] : null).FirstOrDefault(v => v is not null);
                 if (sample is decimal or double or float or long or int or short) _numericCols.Add(c);
@@ -263,8 +268,9 @@
     private void OpenDoc(object[] row)
     {
         var doc = _docEntryIndex >= 0 && row.Length > _docEntryIndex ? row[_docEntryIndex] : null;
-        if (doc is not null)
-            Nav.NavigateTo($"/efaktur/show-pajak-keluaran?doc={doc}");
+        var uuid = _uuidIndex >= 0 && row.Length > _uuidIndex ? row[_uuidIndex] : null;
+        if (doc is not null && uuid is not null)
+            Nav.NavigateTo($"/efaktur/show-pajak-keluaran?doc={doc}&uuid={uuid}");
     }
 
     // Lebar tetap kolom (hasil hitung fit-isi di LoadData).

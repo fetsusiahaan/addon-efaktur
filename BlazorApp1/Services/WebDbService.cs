@@ -80,15 +80,15 @@ public class WebDbService
     /// sekaligus sebagai TVP. Seluruh proses (generate DocEntry, insert header,
     /// insert detail, transaksi) berada di dalam Stored Procedure.
     /// </summary>
-    public async Task<(bool Ok, string? Error, int DocEntry, int DocNum)> SavePajakKeluaranAsync(
+    public async Task<(bool Ok, string? Error, int DocEntry, int DocNum, Guid Uuid)> SavePajakKeluaranAsync(
         PajakKeluaranHeader header, IReadOnlyList<FakturKeluaranRow> details,
         int userSign = 0, string? creator = null, CancellationToken ct = default)
     {
         var cs = GetConnectionString();
         if (string.IsNullOrWhiteSpace(cs))
-            return (false, "Konfigurasi koneksi (WebDbConfig.json) belum diisi.", 0, 0);
+            return (false, "Konfigurasi koneksi (WebDbConfig.json) belum diisi.", 0, 0, Guid.Empty);
         if (details.Count == 0)
-            return (false, "Tidak ada baris untuk disimpan.", 0, 0);
+            return (false, "Tidak ada baris untuk disimpan.", 0, 0, Guid.Empty);
 
         try
         {
@@ -126,9 +126,13 @@ public class WebDbService
             var pDocEntry = new SqlParameter("@DocEntry", SqlDbType.Int) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(pDocEntry);
 
+            var pUuid = new SqlParameter("@Uuid", SqlDbType.UniqueIdentifier) { Direction = ParameterDirection.Output };
+            cmd.Parameters.Add(pUuid);
+
             await cmd.ExecuteNonQueryAsync(ct);
 
             var docEntry = pDocEntry.Value is int de ? de : 0;
+            var uuid = pUuid.Value is Guid g ? g : Guid.Empty;
 
             // Ambil DocNum yang di-generate SP (untuk ditampilkan ke user).
             int docNum = 0;
@@ -142,11 +146,11 @@ public class WebDbService
                     int.TryParse(val.ToString(), out docNum);
             }
 
-            return (true, null, docEntry, docNum);
+            return (true, null, docEntry, docNum, uuid);
         }
         catch (Exception ex)
         {
-            return (false, ex.Message, 0, 0);
+            return (false, ex.Message, 0, 0, Guid.Empty);
         }
     }
 
@@ -209,6 +213,38 @@ public class WebDbService
         catch (Exception ex)
         {
             return (false, ex.Message, 0);
+        }
+    }
+
+    /// <summary>
+    /// Batalkan dokumen: set Canceled='Y' pada IDU_PAJAK_TRANS untuk DocEntry
+    /// tertentu, sekaligus mencatat waktu perubahan (UpdateDate = GETDATE()).
+    /// Dokumen yang dibatalkan hilang dari Daftar (yang memfilter Canceled='N').
+    /// </summary>
+    public async Task<(bool Ok, string? Error)> CancelDocumentAsync(
+        int docEntry, CancellationToken ct = default)
+    {
+        var cs = GetConnectionString();
+        if (string.IsNullOrWhiteSpace(cs))
+            return (false, "Konfigurasi koneksi (WebDbConfig.json) belum diisi.");
+
+        try
+        {
+            await using var conn = new SqlConnection(cs);
+            await using var cmd = new SqlCommand(
+                "UPDATE IDU_PAJAK_TRANS SET Canceled = 'Y', UpdateDate = GETDATE() " +
+                "WHERE DocEntry = @doc", conn) { CommandTimeout = 60 };
+            cmd.Parameters.AddWithValue("@doc", docEntry);
+
+            await conn.OpenAsync(ct);
+            var affected = await cmd.ExecuteNonQueryAsync(ct);
+            return affected > 0
+                ? (true, null)
+                : (false, "Dokumen tidak ditemukan.");
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
         }
     }
 
