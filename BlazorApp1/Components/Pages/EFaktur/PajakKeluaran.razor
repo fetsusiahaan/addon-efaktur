@@ -20,6 +20,34 @@
         </Actions>
     </PageHeader>
 
+    @* ---------- Panel pencarian (gaya seperti Create) ---------- *@
+    <div class="dpk-search-card">
+        <div class="dpk-search-grid">
+            <div class="dpk-field">
+                <label class="dpk-label">Search by</label>
+                <select class="dpk-ctrl" @bind="_searchBy">
+                    <option value="doc">No. Dokumen Pajak</option>
+                    <option value="inv">No. Invoice</option>
+                </select>
+            </div>
+            <div class="dpk-field">
+                <label class="dpk-label">@(_searchBy == "inv" ? "No. Invoice" : "No. Dokumen Pajak")</label>
+                <div class="dpk-search-input">
+                    <i class="bi bi-search"></i>
+                    <input class="dpk-ctrl" placeholder="Cari @(_searchBy == "inv" ? "no. invoice" : "no. dokumen")..."
+                           value="@_search" @oninput="OnSearch" />
+                    @if (!string.IsNullOrEmpty(_search))
+                    {
+                        <button type="button" class="dpk-search-clear" title="Bersihkan"
+                                @onclick="() => _search = string.Empty">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
     @* ---------- Kartu daftar ---------- *@
     <div class="dpk-card">
         <div class="dpk-card-head">
@@ -75,7 +103,7 @@
                     {
                         var col = i;                         // capture index
                         var name = _columns[i];
-                        if (col == _uuidIndex) { continue; }
+                        if (col == _uuidIndex || col == _invNumsIndex) { continue; }
                         var numeric = _numericCols.Contains(col);
                         <RadzenDataGridColumn TItem="object[]"
                                               Width="@WidthOf(col)"
@@ -132,11 +160,24 @@
     private readonly List<int> _colWidths = new();                  // lebar tetap per kolom (px), fit isi
     private int _docEntryIndex = -1;
     private int _uuidIndex = -1;
+    private int _docNumIndex = -1;
+    private int _invNumsIndex = -1;
+    private string _search = "";
+    private string _searchBy = "doc";   // "doc" = No. Dokumen Pajak, "inv" = No. Invoice
+
+    private void OnSearch(ChangeEventArgs e) => _search = e.Value?.ToString() ?? "";
 
     // Daftar transaksi Pajak Keluaran tersimpan (dari SAP_WEB, header yang belum dibatalkan).
-    // uuid ikut diambil (dipakai membentuk URL detail), tapi disembunyikan dari grid.
-    private const string Sql =
-        "SELECT DocEntry, DocNum, CreateDate, U_Format, uuid FROM IDU_PAJAK_TRANS WHERE Canceled = 'N'";
+    // uuid & InvNums ikut diambil tapi DISEMBUNYIKAN dari grid:
+    //   - uuid    : membentuk URL detail.
+    //   - InvNums : gabungan nomor invoice (U_NumINV) per dokumen, untuk pencarian.
+    private const string Sql = @"
+        SELECT h.DocEntry, h.DocNum, h.CreateDate, h.U_Format, h.uuid,
+               (SELECT STRING_AGG(CAST(d.U_NumINV AS NVARCHAR(MAX)), ', ')
+                FROM IDU_PAJAK_TRANS_DET d
+                WHERE d.DocEntry = h.DocEntry AND ISNULL(d.U_Status, '') <> 'N') AS InvNums
+        FROM IDU_PAJAK_TRANS h
+        WHERE h.Canceled = 'N'";
 
     // Muat data SETELAH render pertama (di circuit), bukan saat prerender,
     // agar halaman tampil cepat dan tidak menunggu query DB.
@@ -162,6 +203,8 @@
         _sortAsc = true;
         _docEntryIndex = -1;
         _uuidIndex = -1;
+        _docNumIndex = -1;
+        _invNumsIndex = -1;
         StateHasChanged();
         await Task.Yield();
 
@@ -179,6 +222,8 @@
             {
                 if (_columns[c].Equals("DocEntry", StringComparison.OrdinalIgnoreCase)) _docEntryIndex = c;
                 if (_columns[c].Equals("uuid", StringComparison.OrdinalIgnoreCase)) _uuidIndex = c;
+                if (_columns[c].Equals("DocNum", StringComparison.OrdinalIgnoreCase)) _docNumIndex = c;
+                if (_columns[c].Equals("InvNums", StringComparison.OrdinalIgnoreCase)) _invNumsIndex = c;
 
                 var sample = _rows.Select(r => r.Length > c ? r[c] : null).FirstOrDefault(v => v is not null);
                 if (sample is decimal or double or float or long or int or short) _numericCols.Add(c);
@@ -205,6 +250,16 @@
         get
         {
             IEnumerable<object[]> q = _rows;
+
+            // Pencarian sesuai "Search by": No. Dokumen Pajak (DocNum) atau No. Invoice (InvNums).
+            if (!string.IsNullOrWhiteSpace(_search))
+            {
+                var s = _search.Trim();
+                var target = _searchBy == "inv" ? _invNumsIndex : _docNumIndex;
+                q = q.Where(r => target >= 0 && target < r.Length &&
+                    FormatCell(r[target]).Contains(s, StringComparison.OrdinalIgnoreCase));
+            }
+
             foreach (var (col, term) in _colFilters)
             {
                 if (string.IsNullOrWhiteSpace(term)) continue;

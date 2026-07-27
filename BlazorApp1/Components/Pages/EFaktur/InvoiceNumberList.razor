@@ -2,6 +2,7 @@
 @using BlazorApp1.Services
 @using Radzen.Blazor
 @inject SapQueryService QuerySvc
+@inject WebDbService WebDb
 @inject Radzen.DialogService DialogService
 
 <div class="inv-list">
@@ -64,9 +65,23 @@
         // Query di thread pool agar driver DB yang memblokir tak membekukan UI.
         var result = await Task.Run(() => QuerySvc.RunQueryAsync(Sql));
         if (result?.Error is not null)
+        {
             _error = result.Error;
+        }
         else if (result is not null)
+        {
             _rows = MapRows(result);
+
+            // Sembunyikan invoice yang SUDAH masuk Dokumen Pajak (U_Status='Y',
+            // header belum dibatalkan). Invoice = OINV -> U_DocType '13'.
+            var processed = await Task.Run(() => WebDb.GetProcessedInvoiceKeysAsync());
+            var processedInv = processed
+                .Where(k => k.DocType.Trim() == "13")
+                .Select(k => k.EntryINV)
+                .ToHashSet();
+            if (processedInv.Count > 0)
+                _rows = _rows.Where(r => !processedInv.Contains(r.DocEntry)).ToList();
+        }
         _loading = false;
     }
 

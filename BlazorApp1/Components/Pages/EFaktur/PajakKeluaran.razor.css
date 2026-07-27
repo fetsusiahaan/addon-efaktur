@@ -49,6 +49,92 @@
     gap: .5rem;
 }
 
+/* ── Panel pencarian (gaya seperti Create Pajak Keluaran) ── */
+.dpk-search-card {
+    background: #fff;
+    border: 1px solid var(--dpk-border);
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, .05);
+    padding: 1rem;
+    margin-bottom: .9rem;
+}
+
+.dpk-search-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    max-width: 720px;
+}
+
+.dpk-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.dpk-label {
+    font-size: .8rem;
+    font-weight: 600;
+    color: #475467;
+    margin-bottom: .35rem;
+}
+
+.dpk-ctrl {
+    width: 100%;
+    border: 1px solid var(--dpk-border);
+    border-radius: 8px;
+    padding: .45rem .7rem;
+    font-size: .85rem;
+    color: #344054;
+    background: #fff;
+    outline: none;
+}
+
+.dpk-ctrl:focus {
+    border-color: #5b9bd5;
+    box-shadow: 0 0 0 3px rgba(91, 155, 213, .15);
+}
+
+/* Field pencarian: ikon di kiri + tombol bersihkan di kanan */
+.dpk-search-input {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.dpk-search-input > i {
+    position: absolute;
+    left: .7rem;
+    color: #94a3b8;
+    font-size: .85rem;
+    pointer-events: none;
+}
+
+.dpk-search-input .dpk-ctrl {
+    padding-left: 2rem;
+    padding-right: 1.9rem;
+}
+
+.dpk-search-clear {
+    position: absolute;
+    right: .45rem;
+    border: 0;
+    background: transparent;
+    color: #94a3b8;
+    line-height: 1;
+    padding: .15rem;
+    cursor: pointer;
+}
+
+.dpk-search-clear:hover {
+    color: #475467;
+}
+
+@media (max-width: 640px) {
+    .dpk-search-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Header kolom: judul + input filter (muncul saat Filter aktif) */
 .dpk-col-head {
     display: flex;
