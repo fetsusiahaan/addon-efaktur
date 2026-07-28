@@ -1,7 +1,8 @@
+using BlazorApp1.Models;
+using Radzen.Documents.Markdown;
 using System.Globalization;
 using System.Text;
 using System.Xml;
-using BlazorApp1.Models;
 
 namespace BlazorApp1.Services;
 
@@ -22,7 +23,7 @@ public class EFakturExportService
         _web = web;
     }
 
-    private sealed record Line(int DocEntry, string? ItemCode, string? Desc, decimal Price, decimal Qty, decimal LineTotal);
+    private sealed record Line(int DocEntry, string? ItemCode, string? Desc, decimal Price, decimal Qty, decimal LineTotal, decimal TotalPPN, decimal Vatsum);
 
     public async Task<(string? Csv, string? Error)> BuildCsvAsync(
         IReadOnlyList<FakturKeluaranRow> rows, CancellationToken ct = default)
@@ -38,16 +39,62 @@ public class EFakturExportService
         if (invEntries.Count > 0)
         {
             var ids = string.Join(",", invEntries);
+            // var lineSql =
+            //     "SELECT T1.\"DocEntry\" \"DocEntry\", T1.\"VisOrder\" \"VisOrder\", T1.\"ItemCode\" \"ItemCode\", " +
+            //     "REPLACE(REPLACE(REPLACE(REPLACE(T1.\"Dscription\",'\"',''),'''',''),',','.'),';','.') \"Dscription\", " +
+            //     "CASE WHEN T1.\"Rate\" > 0 THEN ROUND(CAST(T1.\"PriceBefDi\" AS DECIMAL(19,2)) * T1.\"Rate\", 0) " +
+            //     "ELSE CAST(T1.\"PriceBefDi\" AS DECIMAL(19,2)) END \"PriceBefDi\", " +
+            //     "CASE WHEN T9.\"DocType\" = 'S' THEN 1 ELSE T1.\"OpenQty\" END \"Quantity\", " +
+            //     "T1.\"LineTotal\" \"LineTotal\" " +
+            //     "FROM \"INV1\" T1 JOIN \"OINV\" T9 ON T9.\"DocEntry\" = T1.\"DocEntry\" " +
+            //     $"WHERE T1.\"DocEntry\" IN ({ids}) AND T1.\"LineTotal\" > 0 " +
+            //     "ORDER BY T1.\"DocEntry\", T1.\"VisOrder\"";
+
             var lineSql =
-                "SELECT T1.\"DocEntry\" \"DocEntry\", T1.\"VisOrder\" \"VisOrder\", T1.\"ItemCode\" \"ItemCode\", " +
-                "REPLACE(REPLACE(REPLACE(REPLACE(T1.\"Dscription\",'\"',''),'''',''),',','.'),';','.') \"Dscription\", " +
-                "CASE WHEN T1.\"Rate\" > 0 THEN ROUND(CAST(T1.\"PriceBefDi\" AS DECIMAL(19,2)) * T1.\"Rate\", 0) " +
-                "ELSE CAST(T1.\"PriceBefDi\" AS DECIMAL(19,2)) END \"PriceBefDi\", " +
-                "CASE WHEN T9.\"DocType\" = 'S' THEN 1 ELSE T1.\"OpenQty\" END \"Quantity\", " +
-                "T1.\"LineTotal\" \"LineTotal\" " +
-                "FROM \"INV1\" T1 JOIN \"OINV\" T9 ON T9.\"DocEntry\" = T1.\"DocEntry\" " +
-                $"WHERE T1.\"DocEntry\" IN ({ids}) AND T1.\"LineTotal\" > 0 " +
-                "ORDER BY T1.\"DocEntry\", T1.\"VisOrder\"";
+               "SELECT X.\"DocEntry\", X.\"VisOrder\", X.\"ItemCode\", X.\"Dscription\", " +
+               "X.\"PriceBefDi\", X.\"Quantity\", X.\"LineTotal\", " +
+               "FLOOR(SUM(\"TotalPPN\") OVER(PARTITION BY \"DocNum\" ORDER BY \"DocNum\")) \"VatSum\"," +
+               "ROUND( " +
+               "CASE " +
+               "WHEN MAX(X.\"Num\") OVER (PARTITION BY X.\"DocNum\") = X.\"Num\" THEN " +
+                   "CASE " +
+                   "WHEN SUM(X.\"TotalPPN\") OVER (PARTITION BY X.\"DocNum\") <> X.\"VatSum\" THEN " +
+                       "X.\"TotalPPN\" + (X.\"VatSum\" - SUM(X.\"TotalPPN\") OVER (PARTITION BY X.\"DocNum\")) " +
+                   "ELSE X.\"TotalPPN\" " +
+                   "END " +
+               "ELSE X.\"TotalPPN\" " +
+               "END, 0) \"TotalPPN\" " +
+               "FROM ( " +
+
+                   "SELECT " +
+                   "T1.\"DocEntry\" \"DocEntry\", " +
+                   "T9.\"DocNum\" \"DocNum\", " +
+                   "T1.\"VisOrder\" \"VisOrder\", " +
+                   "ROW_NUMBER() OVER(PARTITION BY T1.\"DocEntry\" ORDER BY T1.\"VisOrder\") \"Num\", " +
+                   "T1.\"ItemCode\" \"ItemCode\", " +
+                   "REPLACE(REPLACE(REPLACE(REPLACE(T1.\"Dscription\",'\"',''),'''',''),',','.'),';','.') \"Dscription\", " +
+
+                   "CASE WHEN T1.\"Rate\" > 0 " +
+                   "THEN ROUND(CAST(T1.\"PriceBefDi\" AS DECIMAL(19,2)) * T1.\"Rate\",0) " +
+                   "ELSE CAST(T1.\"PriceBefDi\" AS DECIMAL(19,2)) END \"PriceBefDi\", " +
+
+                   "CASE WHEN T9.\"DocType\"='S' THEN 1 ELSE T1.\"OpenQty\" END \"Quantity\", " +
+                   "T1.\"LineTotal\" \"LineTotal\", " +
+                   "T9.\"VatSum\" \"VatSum\", " +
+
+                   "FLOOR(( " +
+                       "FLOOR(IFNULL(T1.\"LineTotal\",0)) - " +
+                       "FLOOR(T1.\"DiscPrcnt\" * (T1.\"LineTotal\" / " +
+                           "SUM(IFNULL(T1.\"LineTotal\",0)) OVER(PARTITION BY T1.\"DocEntry\"))) " +
+                   ") * T9.\"U_IDU_RatePajak\" / 100) \"TotalPPN\" " +
+
+                   "FROM \"INV1\" T1 " +
+                   "JOIN \"OINV\" T9 ON T9.\"DocEntry\" = T1.\"DocEntry\" " +
+                   $"WHERE T1.\"DocEntry\" IN ({ids}) " +
+                   "AND T1.\"LineTotal\" > 0 " +
+
+               ") X " +
+               "ORDER BY X.\"DocEntry\", X.\"VisOrder\"";
 
             var lr = await _sap.RunRawQueryAsync(lineSql, ct);
             if (lr.Error is not null) return (null, lr.Error);
@@ -61,7 +108,9 @@ public class EFakturExportService
                     Cell(row, idx, "Dscription")?.ToString(),
                     ToDec(Cell(row, idx, "PriceBefDi")),
                     ToDec(Cell(row, idx, "Quantity")),
-                    ToDec(Cell(row, idx, "LineTotal")));
+                    ToDec(Cell(row, idx, "LineTotal")),
+                    ToDec(Cell(row, idx, "TotalPPN")),
+                    ToDec(Cell(row, idx, "VatSum")));
                 if (!lineMap.TryGetValue(de, out var list)) lineMap[de] = list = new();
                 list.Add(line);
             }
@@ -88,11 +137,11 @@ public class EFakturExportService
 
             var ofRows = new List<(string Code, string Desc, decimal Price, decimal Qty, decimal Bef, decimal Disc, decimal Dpp, decimal Ppn)>();
             decimal totalDpp = 0, totalPpn = 0;
-
+            int oneLineCount = 1;
             if (lineMap.TryGetValue(r.DocEntry, out var lines) && lines.Count > 0)
             {
                 var sumLine = lines.Sum(l => l.LineTotal);
-
+                oneLineCount = lines.Count;
                 // Hitung per baris: DPP + PPN "sebenarnya" (belum dibulatkan).
                 var tmp = new List<(string Code, string Desc, decimal Price, decimal Qty, decimal Bef, decimal Disc, decimal Dpp, decimal TruePpn)>();
                 foreach (var l in lines)
@@ -100,7 +149,9 @@ public class EFakturExportService
                     var bef = Math.Floor(l.LineTotal);
                     var disc = sumLine == 0 ? 0 : Math.Floor(r.Discount * (l.LineTotal / sumLine));
                     var dpp = bef - disc;
-                    var truePpn = dpp * rate / 100m;
+
+                    totalPpn = l.Vatsum;   // PPN header (FAPR) = Σ PPN baris (belum dibulatkan)
+                    var truePpn = l.TotalPPN;   // PPN "sebenarnya" (belum dibulatkan)
                     tmp.Add((l.ItemCode ?? "000000", l.Desc ?? "", l.Price, l.Qty, bef, disc, dpp, truePpn));
                 }
 
@@ -122,12 +173,23 @@ public class EFakturExportService
                 //       ofRows.Add((t.Code, t.Desc, t.Price, t.Qty, t.Bef, t.Disc, t.Dpp, ppn));
                 //   }
                 // ─────────────────────────────────────────────────────────────────
-                totalPpn = 0;
+                //totalPpn = 0;
                 foreach (var t in tmp)
                 {
-                    var ppn = Math.Floor(t.TruePpn);
-                    totalPpn += ppn;
-                    ofRows.Add((t.Code, t.Desc, t.Price, t.Qty, t.Bef, t.Disc, t.Dpp, ppn));
+                    //var ppn = Math.Floor(t.TruePpn);
+                    //totalPpn += t.TruePpn;
+                    decimal ppnPerRow = 0;
+                    if (oneLineCount == 1)
+                    {
+                        ppnPerRow = totalPpn;
+                    }
+                    else
+                    {
+                        ppnPerRow = t.TruePpn;
+                    }
+
+
+                    ofRows.Add((t.Code, t.Desc, t.Price, t.Qty, t.Bef, t.Disc, t.Dpp, ppnPerRow));
                 }
             }
             else
@@ -135,7 +197,8 @@ public class EFakturExportService
                 // Fallback (DP / tanpa baris item): satu OF ringkas dari grid.
                 var dpp = Math.Floor(r.DocTotal - r.VatSum);
                 var ppn = Math.Floor(r.VatSum);
-                totalDpp = dpp; totalPpn = ppn;
+                totalDpp = dpp;
+                totalPpn = r.VatSum;
                 ofRows.Add(("000000", CommaClean(r.CardName) ?? "Penjualan", dpp, 1m, dpp, Math.Floor(r.Discount), dpp, ppn));
             }
 
@@ -151,9 +214,9 @@ public class EFakturExportService
               .Append(Digits(r.NoFP)).Append(',')
               .Append(masa).Append(',').Append(tahun).Append(',').Append(tgl).Append(',')
               .Append(Q(Digits(r.NPWP))).Append(',')
-              // NAMA dikosongkan agar sama dengan output VB.NET.
-              // (dulu: CommaClean(r.NamaNPWP ?? r.CardName))
-              .Append(',')
+              // NAMA: nama NPWP untuk customer ber-NPWP, kosong bila cash/tanpa
+              // NPWP (mengikuti output SAP / SP __IDUFAKTURPAJAK_EFAKTU).
+              .Append(NamaForFk(r)).Append(',')
               .Append(Q(CommaClean(r.AlamatNPWP))).Append(',')
               .Append(Int(totalDpp)).Append(',').Append(Int(totalPpn)).Append(",0,")
               .Append(Q(CommaClean(r.KetTambah))).Append(",0,0,0,0,")
@@ -173,7 +236,8 @@ public class EFakturExportService
                 sb.Append("OF,").Append(of.Code).Append(',').Append(Q(of.Desc)).Append(',')
                   .Append(Dec(of.Price)).Append(',').Append(Dec(of.Qty)).Append(',')
                   .Append(Int(of.Bef)).Append(',').Append(Int(of.Disc)).Append(',')
-                  .Append(Int(of.Dpp)).Append(',').Append(Int(of.Ppn)).Append(",0,0,,,,,,,,,,");
+                  .Append(Int(of.Dpp)).Append(',')
+                  .Append(Int(of.Ppn)).Append(",0,0,,,,,,,,,,");
                 sb.AppendLine();
             }
         }
@@ -349,20 +413,20 @@ public class EFakturExportService
                 string bName, bAddr, bEmail;
                 if (isNpwp)
                 {
-                    bName  = buyer!.NamaNPWP;
-                    bAddr  = buyer.AlmtNPWP;
+                    bName = buyer!.NamaNPWP;
+                    bAddr = buyer.AlmtNPWP;
                     bEmail = buyer.Email;
                 }
                 else if (isCash)
                 {
-                    bName  = buyer!.CpName;
-                    bAddr  = buyer.CpAddr;
+                    bName = buyer!.CpName;
+                    bAddr = buyer.CpAddr;
                     bEmail = buyer.CpEmail;
                 }
                 else
                 {
-                    bName  = FirstNonEmpty(buyer?.NamaNPWP, buyer?.CpName);
-                    bAddr  = FirstNonEmpty(buyer?.AlmtNPWP, buyer?.CpAddr);
+                    bName = FirstNonEmpty(buyer?.NamaNPWP, buyer?.CpName);
+                    bAddr = FirstNonEmpty(buyer?.AlmtNPWP, buyer?.CpAddr);
                     bEmail = FirstNonEmpty(buyer?.Email, buyer?.CpEmail);
                 }
                 // Fallback terakhir bila semua kosong: nama/alamat dari invoice.
@@ -605,4 +669,13 @@ public class EFakturExportService
     private static string OneLine(string? s) => (s ?? "").Replace("\r", " ").Replace("\n", " ").Replace(",", " ");
     private static string? CommaClean(string? s) => s?.Replace(",", " ");
     private static string Digits(string? s) => new string((s ?? "").Where(c => char.IsDigit(c)).ToArray());
+
+    // NAMA (baris FK): nama NPWP bila customer ber-NPWP, kosong bila cash/tanpa
+    // NPWP — mengikuti output SAP. NPWP dianggap "ada" bila memuat digit selain 0.
+    private static string NamaForFk(FakturKeluaranRow r)
+    {
+        var npwp = Digits(r.NPWP);
+        var hasNpwp = npwp.Length > 0 && npwp.Any(c => c != '0');
+        return hasNpwp ? (CommaClean(r.NamaNPWP) ?? "") : "";
+    }
 }
