@@ -432,14 +432,14 @@ public class EFakturExportService
                 // Fallback terakhir bila semua kosong: nama/alamat dari invoice.
                 bName = FirstNonEmpty(bName, buyer?.CardName, r.CardName);
 
-                WriteEl(w, "BuyerTin", isNpwp ? "0" + npwp : "0000000000000000");
+                WriteEl(w, "BuyerTin", isNpwp ? npwp : null);
                 WriteEl(w, "BuyerDocument", isNpwp ? "TIN" : "National ID");
                 var country = (buyer?.Country ?? "").Trim();
                 WriteEl(w, "BuyerCountry",
                     country.Length > 0 && iso3.TryGetValue(country, out var iso) ? iso : "IDN");
                 WriteEl(w, "BuyerDocumentNumber", isNpwp ? "-" : Digits(buyer?.Nik is { Length: > 0 } nk ? nk : r.NIK));
-                WriteEl(w, "BuyerName", CommaClean(bName));
-                WriteEl(w, "BuyerAdress", CommaClean(bAddr));
+                WriteEl(w, "BuyerName", null);
+                WriteEl(w, "BuyerAdress", bAddr);
                 WriteEl(w, "BuyerEmail", bEmail);
                 WriteEl(w, "BuyerIDTKU", isNpwp ? Digits(buyer?.Idtku) : "000000");
 
