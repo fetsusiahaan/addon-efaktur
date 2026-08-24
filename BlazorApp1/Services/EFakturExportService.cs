@@ -54,15 +54,16 @@ public class EFakturExportService
                "SELECT X.\"DocEntry\", X.\"VisOrder\", X.\"ItemCode\", X.\"Dscription\", " +
                "X.\"PriceBefDi\", X.\"Quantity\", X.\"LineTotal\", " +
                "FLOOR(SUM(\"TotalPPN\") OVER(PARTITION BY \"DocNum\" ORDER BY \"DocNum\")) \"VatSum\"," +
+
                "ROUND( " +
                "CASE " +
                "WHEN MAX(X.\"Num\") OVER (PARTITION BY X.\"DocNum\") = X.\"Num\" THEN " +
                    "CASE " +
                    "WHEN SUM(X.\"TotalPPN\") OVER (PARTITION BY X.\"DocNum\") <> X.\"VatSum\" THEN " +
-                       "X.\"TotalPPN\" + (X.\"VatSum\" - SUM(X.\"TotalPPN\") OVER (PARTITION BY X.\"DocNum\")) " +
-                   "ELSE X.\"TotalPPN\" " +
+                       "FLOOR(X.\"TotalPPN\" + (X.\"VatSum\" - SUM(X.\"TotalPPN\") OVER (PARTITION BY X.\"DocNum\"))) " +
+                   "ELSE FLOOR(X.\"TotalPPN\") " +
                    "END " +
-               "ELSE X.\"TotalPPN\" " +
+               "ELSE FLOOR(X.\"TotalPPN\") " +
                "END, 0) \"TotalPPN\" " +
                "FROM ( " +
 
@@ -85,7 +86,7 @@ public class EFakturExportService
                    "FLOOR(( " +
                        "FLOOR(IFNULL(T1.\"LineTotal\",0)) - " +
                        "FLOOR(T1.\"DiscPrcnt\" * (T1.\"LineTotal\" / " +
-                           "SUM(IFNULL(T1.\"LineTotal\",0)) OVER(PARTITION BY T1.\"DocEntry\"))) " +
+                           "SUM(IFNULL(T1.\"LineTotal\",0)) OVER(PARTITION BY T9.\"DocNum\" ORDER BY T9.\"DocNum\"))) " +
                    ") * T9.\"U_IDU_RatePajak\" / 100) \"TotalPPN\" " +
 
                    "FROM \"INV1\" T1 " +
@@ -150,6 +151,7 @@ public class EFakturExportService
                     var disc = sumLine == 0 ? 0 : Math.Floor(r.Discount * (l.LineTotal / sumLine));
                     var dpp = bef - disc;
 
+
                     totalPpn = l.Vatsum;   // PPN header (FAPR) = Σ PPN baris (belum dibulatkan)
                     var truePpn = l.TotalPPN;   // PPN "sebenarnya" (belum dibulatkan)
                     tmp.Add((l.ItemCode ?? "000000", l.Desc ?? "", l.Price, l.Qty, bef, disc, dpp, truePpn));
@@ -181,7 +183,7 @@ public class EFakturExportService
                     decimal ppnPerRow = 0;
                     if (oneLineCount == 1)
                     {
-                        ppnPerRow = totalPpn;
+                        ppnPerRow = t.TruePpn;
                     }
                     else
                     {
@@ -430,7 +432,7 @@ public class EFakturExportService
                     bEmail = FirstNonEmpty(buyer?.Email, buyer?.CpEmail);
                 }
                 // Fallback terakhir bila semua kosong: nama/alamat dari invoice.
-                bName = FirstNonEmpty(bName, buyer?.CardName, r.CardName);
+                //bName = FirstNonEmpty(bName, buyer?.CardName, r.CardName);
 
                 WriteEl(w, "BuyerTin", isNpwp ? npwp : null);
                 WriteEl(w, "BuyerDocument", isNpwp ? "TIN" : "National ID");
@@ -438,7 +440,7 @@ public class EFakturExportService
                 WriteEl(w, "BuyerCountry",
                     country.Length > 0 && iso3.TryGetValue(country, out var iso) ? iso : "IDN");
                 WriteEl(w, "BuyerDocumentNumber", isNpwp ? "-" : Digits(buyer?.Nik is { Length: > 0 } nk ? nk : r.NIK));
-                WriteEl(w, "BuyerName", null);
+                WriteEl(w, "BuyerName", CommaClean(bName));
                 WriteEl(w, "BuyerAdress", bAddr);
                 WriteEl(w, "BuyerEmail", bEmail);
                 WriteEl(w, "BuyerIDTKU", isNpwp ? Digits(buyer?.Idtku) : "000000");
