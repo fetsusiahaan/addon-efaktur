@@ -203,25 +203,35 @@ public class UserService
         using var conn = new SqliteConnection(_connString);
         conn.Open();
         using var cmd = conn.CreateCommand();
-        // User baru selalu memakai password default (di-hash).
+        // Password diisi dari form Add (wajib, bukan default lagi).
         cmd.CommandText = @"INSERT INTO Users (FullName,Email,Username,Status,Role,JoinedDate,LastActive,KoneksiDb,Password)
                             VALUES ($f,$e,$u,$s,$r,$j,$l,$k,$p);";
         Bind(cmd, u);
-        cmd.Parameters.AddWithValue("$p", HashPassword(DefaultPassword));
+        cmd.Parameters.AddWithValue("$p", HashPassword(u.Password));
         cmd.ExecuteNonQuery();
     }
 
-    public void Update(AppUser u)
+    public void Update(AppUser u, string? newPassword = null)
     {
         EnsureInit();
         using var conn = new SqliteConnection(_connString);
         conn.Open();
         using var cmd = conn.CreateCommand();
-        // Username & Password sengaja TIDAK di-update di sini
-        // (username tidak boleh diubah; password dikelola terpisah).
-        cmd.CommandText = @"UPDATE Users SET FullName=$f,Email=$e,Status=$s,Role=$r,
-                            JoinedDate=$j,LastActive=$l,KoneksiDb=$k WHERE Id=$id;";
-        Bind(cmd, u);
+        // Username sengaja TIDAK di-update di sini (username tidak boleh diubah).
+        // Password hanya di-update bila newPassword diisi (fitur ganti password saat Edit).
+        if (string.IsNullOrEmpty(newPassword))
+        {
+            cmd.CommandText = @"UPDATE Users SET FullName=$f,Email=$e,Status=$s,Role=$r,
+                                JoinedDate=$j,LastActive=$l,KoneksiDb=$k WHERE Id=$id;";
+            Bind(cmd, u);
+        }
+        else
+        {
+            cmd.CommandText = @"UPDATE Users SET FullName=$f,Email=$e,Status=$s,Role=$r,
+                                JoinedDate=$j,LastActive=$l,KoneksiDb=$k,Password=$p WHERE Id=$id;";
+            Bind(cmd, u);
+            cmd.Parameters.AddWithValue("$p", HashPassword(newPassword));
+        }
         cmd.Parameters.AddWithValue("$id", u.Id);
         cmd.ExecuteNonQuery();
     }

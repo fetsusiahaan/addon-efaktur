@@ -16,13 +16,71 @@
         </div>
         <div class="col-md-6">
             <label class="ued-label">Username <span class="ued-req">*</span></label>
-            <input class="form-control" @bind="_u.Username" placeholder="username"
-                   disabled="@_isEdit" readonly="@_isEdit" />
+            <input class="form-control" value="@_u.Username" @oninput="OnUsernameInput" placeholder="username"
+                   disabled="@_isEdit" readonly="@_isEdit"
+                   onkeypress="filterUsernameKey(event)" onpaste="sanitizeUsernamePaste(event)" />
             @if (_isEdit)
             {
                 <small class="text-muted">Username tidak dapat diubah.</small>
             }
         </div>
+        @if (!_isEdit)
+        {
+            <div class="col-md-6">
+                <label class="ued-label">Password <span class="ued-req">*</span></label>
+                <div class="ued-pwd-input">
+                    <input class="form-control" type="password" @bind="_u.Password" placeholder="Password" />
+                    <button type="button" class="ued-eye" tabindex="-1" aria-label="Lihat / sembunyikan password"
+                            onclick="togglePwd(this)">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
+                <small class="text-muted">Min. 8 karakter, kombinasi huruf besar, huruf kecil, angka, simbol.</small>
+            </div>
+            <div class="col-md-6">
+                <label class="ued-label">Konfirmasi Password <span class="ued-req">*</span></label>
+                <div class="ued-pwd-input">
+                    <input class="form-control" type="password" @bind="_confirmPassword" placeholder="Ulangi password" />
+                    <button type="button" class="ued-eye" tabindex="-1" aria-label="Lihat / sembunyikan password"
+                            onclick="togglePwd(this)">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="col-12">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="uedChangePwd" @bind="_changePassword" />
+                    <label class="form-check-label ued-label mb-0" for="uedChangePwd">Ganti Password</label>
+                </div>
+            </div>
+            @if (_changePassword)
+            {
+                <div class="col-md-6">
+                    <label class="ued-label">Password Baru <span class="ued-req">*</span></label>
+                    <div class="ued-pwd-input">
+                        <input class="form-control" type="password" @bind="_u.Password" placeholder="Password baru" />
+                        <button type="button" class="ued-eye" tabindex="-1" aria-label="Lihat / sembunyikan password"
+                                onclick="togglePwd(this)">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted">Min. 8 karakter, kombinasi huruf besar, huruf kecil, angka, simbol.</small>
+                </div>
+                <div class="col-md-6">
+                    <label class="ued-label">Konfirmasi Password Baru <span class="ued-req">*</span></label>
+                    <div class="ued-pwd-input">
+                        <input class="form-control" type="password" @bind="_confirmPassword" placeholder="Ulangi password baru" />
+                        <button type="button" class="ued-eye" tabindex="-1" aria-label="Lihat / sembunyikan password"
+                                onclick="togglePwd(this)">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
+            }
+        }
         <div class="col-md-6">
             <label class="ued-label">Status</label>
             <select class="form-select" @bind="_u.Status">
@@ -74,12 +132,14 @@
     [Parameter] public AppUser? User { get; set; }
 
     private AppUser _u = new();
+    private string _confirmPassword = "";
     private string? _error;
     private bool _isEdit;
+    private bool _changePassword;
     private List<DbConnectionEntry> _connections = new();
 
     private static readonly string[] Statuses = { "Active", "Inactive", "Banned", "Pending", "Suspended" };
-    private static readonly string[] Roles = { "Admin", "User", "Guest", "Moderator" };
+    private static readonly string[] Roles = { "Admin", "User" };
 
     protected override void OnInitialized()
     {
@@ -87,12 +147,12 @@
         _isEdit = User is not null && User.Id != 0;
 
         _u = User is null
-            ? new AppUser { JoinedDate = DateTime.Today }   // Password default "Password#01" dari model
+            ? new AppUser { JoinedDate = DateTime.Today, Password = "" }
             : new AppUser
             {
                 Id = User.Id, FullName = User.FullName, Email = User.Email, Username = User.Username,
                 Status = User.Status, Role = User.Role, JoinedDate = User.JoinedDate,
-                LastActive = User.LastActive, KoneksiDb = User.KoneksiDb, Password = User.Password
+                LastActive = User.LastActive, KoneksiDb = User.KoneksiDb, Password = ""
             };
     }
 
@@ -104,6 +164,7 @@
 
         if (string.IsNullOrWhiteSpace(_u.FullName)) { _error = "Full Name wajib diisi."; return; }
         if (string.IsNullOrWhiteSpace(_u.Username)) { _error = "Username wajib diisi."; return; }
+        if (_u.Username != SanitizeUsername(_u.Username)) { _error = "Username hanya boleh huruf kecil dan angka."; return; }
         if (string.IsNullOrWhiteSpace(_u.Email)) { _error = "Email wajib diisi."; return; }
         if (!new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(_u.Email))
         {
@@ -116,9 +177,55 @@
             _error = "Username sudah digunakan"; return;
         }
 
+        if (!_isEdit)
+        {
+            if (string.IsNullOrWhiteSpace(_u.Password)) { _error = "Password wajib diisi."; return; }
+            if (!IsPasswordStrong(_u.Password, out var pwErr)) { _error = pwErr; return; }
+            if (_u.Password != _confirmPassword) { _error = "Konfirmasi Password tidak cocok."; return; }
+        }
+        else if (_changePassword)
+        {
+            if (string.IsNullOrWhiteSpace(_u.Password)) { _error = "Password baru wajib diisi."; return; }
+            if (!IsPasswordStrong(_u.Password, out var pwErr)) { _error = pwErr; return; }
+            if (_u.Password != _confirmPassword) { _error = "Konfirmasi Password tidak cocok."; return; }
+        }
+        else
+        {
+            // Edit tanpa ganti password: kosongkan agar Update() tidak menyentuh kolom Password.
+            _u.Password = "";
+        }
+
         if (_u.Id == 0) _u.LastActive = DateTime.Now;
         DialogService.Close(_u);
     }
 
     private void Cancel() => DialogService.Close(null);
+
+    private void OnUsernameInput(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+        => _u.Username = SanitizeUsername(e.Value?.ToString());
+
+    // Hanya huruf kecil dan angka — tanpa spasi/simbol lain.
+    private static string SanitizeUsername(string? raw)
+    {
+        if (string.IsNullOrEmpty(raw)) return "";
+        var sb = new System.Text.StringBuilder(raw.Length);
+        foreach (var c in raw.ToLowerInvariant())
+        {
+            if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
+                sb.Append(c);
+        }
+        return sb.ToString();
+    }
+
+    // Min 8 char, kombinasi huruf besar, huruf kecil, angka, simbol.
+    private static bool IsPasswordStrong(string pw, out string? error)
+    {
+        error = null;
+        if (pw.Length < 8) { error = "Password minimal 8 karakter."; return false; }
+        if (!pw.Any(char.IsUpper)) { error = "Password harus mengandung huruf besar."; return false; }
+        if (!pw.Any(char.IsLower)) { error = "Password harus mengandung huruf kecil."; return false; }
+        if (!pw.Any(char.IsDigit)) { error = "Password harus mengandung angka."; return false; }
+        if (!pw.Any(c => !char.IsLetterOrDigit(c))) { error = "Password harus mengandung simbol."; return false; }
+        return true;
+    }
 }

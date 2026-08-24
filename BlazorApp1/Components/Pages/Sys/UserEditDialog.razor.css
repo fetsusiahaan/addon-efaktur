@@ -33,3 +33,33 @@
     background: #16212e;
     color: #fff;
 }
+
+.ued-pwd-input {
+    position: relative;
+}
+
+.ued-pwd-input .form-control {
+    padding-right: 2.7rem;
+}
+
+.ued-eye {
+    position: absolute;
+    right: .5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 6px;
+    z-index: 2;
+}
+
+.ued-eye:hover {
+    color: #475467;
+}

@@ -40,6 +40,19 @@
             });
         })();
 
+        window.filterUsernameKey = (e) => {
+            if (e.key.length === 1 && !/[a-z0-9]/i.test(e.key)) {
+                e.preventDefault();
+            }
+        };
+
+        window.sanitizeUsernamePaste = (e) => {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            const clean = text.toLowerCase().replace(/[^a-z0-9]/g, '');
+            document.execCommand('insertText', false, clean);
+        };
+
         window.togglePwd = (btn) => {
             const input = btn.parentElement.querySelector('input');
             const icon = btn.querySelector('i');

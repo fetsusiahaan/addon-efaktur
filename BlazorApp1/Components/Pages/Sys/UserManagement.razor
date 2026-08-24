@@ -191,7 +191,7 @@
     private string _status = "";
     private string _dateRange = "";
 
-    private static readonly string[] RoleOptions = { "Admin", "User", "Guest", "Moderator" };
+    private static readonly string[] RoleOptions = { "Admin", "User" };
     private static readonly string[] StatusOptions = { "Active", "Inactive", "Banned", "Pending", "Suspended" };
 
     protected override void OnInitialized() => _all = Users.GetAll();
@@ -246,7 +246,7 @@
 
         if (result is AppUser edited)
         {
-            if (edited.Id == 0) Users.Add(edited); else Users.Update(edited);
+            if (edited.Id == 0) Users.Add(edited); else Users.Update(edited, edited.Password);
             _all = Users.GetAll();
         }
     }
