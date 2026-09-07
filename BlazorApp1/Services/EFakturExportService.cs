@@ -23,10 +23,16 @@ public class EFakturExportService
         _web = web;
     }
 
+    // Query SAP B1 memakai koneksi yang sudah ditentukan pemanggil (entry
+    // milik company asal record), bila ada — bukan koneksi aktif user yang
+    // sedang membuka halaman. entry=null -> fallback ke perilaku lama.
+    private Task<QueryResult> RunSapAsync(string sql, DbConnectionEntry? entry, CancellationToken ct)
+        => entry is null ? _sap.RunRawQueryAsync(sql, ct) : _sap.RunRawQueryAsync(sql, entry, ct);
+
     private sealed record Line(int DocEntry, string? ItemCode, string? Desc, decimal Price, decimal Qty, decimal LineTotal, decimal TotalPPN, decimal Vatsum);
 
     public async Task<(string? Csv, string? Error)> BuildCsvAsync(
-        IReadOnlyList<FakturKeluaranRow> rows, CancellationToken ct = default)
+        IReadOnlyList<FakturKeluaranRow> rows, DbConnectionEntry? entry = null, CancellationToken ct = default)
     {
         if (rows.Count == 0) return (null, "Tidak ada data.");
 
@@ -97,7 +103,7 @@ public class EFakturExportService
                ") X " +
                "ORDER BY X.\"DocEntry\", X.\"VisOrder\"";
 
-            var lr = await _sap.RunRawQueryAsync(lineSql, ct);
+            var lr = await RunSapAsync(lineSql, entry, ct);
             if (lr.Error is not null) return (null, lr.Error);
 
             var idx = ColIndex(lr);
@@ -118,7 +124,7 @@ public class EFakturExportService
         }
 
         // ── 2. Data perusahaan (FAPR) ──
-        var (cName, cAddr, cCity, cSigner) = await GetCompanyAsync(ct);
+        var (cName, cAddr, cCity, cSigner) = await GetCompanyAsync(entry, ct);
 
         // ── 3. Bangun CSV ──
         var sb = new StringBuilder();
@@ -269,7 +275,7 @@ public class EFakturExportService
         string Country);
 
     public async Task<(string? Xml, string? Error)> BuildXmlAsync(
-        IReadOnlyList<FakturKeluaranRow> rows, CancellationToken ct = default)
+        IReadOnlyList<FakturKeluaranRow> rows, DbConnectionEntry? entry = null, CancellationToken ct = default)
     {
         if (rows.Count == 0) return (null, "Tidak ada data.");
 
@@ -293,7 +299,7 @@ public class EFakturExportService
                 $"WHERE T1.\"DocEntry\" IN ({ids}) AND T1.\"LineTotal\" > 0 " +
                 "ORDER BY T1.\"DocEntry\", T1.\"VisOrder\"";
 
-            var lr = await _sap.RunRawQueryAsync(lineSql, ct);
+            var lr = await RunSapAsync(lineSql, entry, ct);
             if (lr.Error is not null) return (null, lr.Error);
 
             var idx = ColIndex(lr);
@@ -331,7 +337,7 @@ public class EFakturExportService
                 "FROM \"OINV\" T9 JOIN \"OCRD\" T7 ON T7.\"CardCode\" = T9.\"CardCode\" " +
                 "LEFT JOIN \"OCPR\" T8 ON T8.\"CardCode\" = T9.\"CardCode\" AND T8.\"CntctCode\" = T9.\"CntctCode\" " +
                 $"WHERE T9.\"DocEntry\" IN ({ids})";
-            var br = await _sap.RunRawQueryAsync(buyerSql, ct);
+            var br = await RunSapAsync(buyerSql, entry, ct);
             if (br.Error is not null) return (null, br.Error);
             {
                 var idx = ColIndex(br);
@@ -361,7 +367,7 @@ public class EFakturExportService
         var iso3 = await GetIso3MapAsync();
 
         // ── 4. Seller (TIN dari OADM) ──
-        var tin = await GetCompanyTinAsync(ct);
+        var tin = await GetCompanyTinAsync(entry, ct);
         var sellerIdtku = string.IsNullOrEmpty(tin) ? "" : tin + "000000";
 
         // ── 4. Tulis XML "TaxInvoiceBulk" ──
@@ -602,12 +608,12 @@ public class EFakturExportService
         return map;
     }
 
-    private async Task<string> GetCompanyTinAsync(CancellationToken ct)
+    private async Task<string> GetCompanyTinAsync(DbConnectionEntry? entry, CancellationToken ct)
     {
         try
         {
             var sql = "SELECT REPLACE(REPLACE(REPLACE(T5.\"TaxIdNum\",'.',''),'-',''),' ','') \"TIN\" FROM \"OADM\" T5";
-            var r = await _sap.RunRawQueryAsync(sql, ct);
+            var r = await RunSapAsync(sql, entry, ct);
             if (r.Error is null && r.Rows.Count > 0)
                 return Cell(r.Rows[0], ColIndex(r), "TIN")?.ToString() ?? "";
         }
@@ -626,7 +632,7 @@ public class EFakturExportService
         w.WriteEndElement();
     }
 
-    private async Task<(string Name, string Addr, string City, string Signer)> GetCompanyAsync(CancellationToken ct)
+    private async Task<(string Name, string Addr, string City, string Signer)> GetCompanyAsync(DbConnectionEntry? entry, CancellationToken ct)
     {
         try
         {
@@ -636,7 +642,7 @@ public class EFakturExportService
                 "REPLACE(IFNULL(T6.\"City\",''),',',' ') \"City\", " +
                 "IFNULL(T5.\"U_IDU_Signer\",'') \"Signer\" " +
                 "FROM \"OADM\" T5 CROSS JOIN \"ADM1\" T6";
-            var r = await _sap.RunRawQueryAsync(sql, ct);
+            var r = await RunSapAsync(sql, entry, ct);
             if (r.Error is null && r.Rows.Count > 0)
             {
                 var idx = ColIndex(r);

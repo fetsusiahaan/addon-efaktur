@@ -68,6 +68,24 @@ public class SapQueryService
     }
 
     /// <summary>
+    /// Resolve koneksi berdasarkan nama (mis. KoneksiDb tersimpan di suatu
+    /// transaksi), tanpa bergantung role/user yang sedang login maupun
+    /// koneksi aktif global. Dipakai saat membaca-balik data SAP B1 milik
+    /// record lama, supaya selalu memakai company yang sama saat dibuat
+    /// (bukan koneksi user yang sedang membuka halaman).
+    /// </summary>
+    public Task<(DbConnectionEntry? Entry, string? Error)> ResolveConnectionByNameAsync(string? koneksiDb)
+    {
+        if (string.IsNullOrWhiteSpace(koneksiDb))
+            return Task.FromResult<(DbConnectionEntry?, string?)>((null, "No choose DB"));
+
+        var entry = _dbMgr.GetAll()
+            .FirstOrDefault(c => string.Equals(c.Nama, koneksiDb, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult<(DbConnectionEntry?, string?)>(
+            entry is null ? (null, "No choose DB") : (entry, null));
+    }
+
+    /// <summary>
     /// Jalankan query ke koneksi yang sedang aktif. Service ini yang
     /// mengidentifikasi jenis DB koneksi aktif (SQL Server / SAP HANA) dan
     /// memilih provider yang sesuai. Tulis query dengan identifier
@@ -100,6 +118,20 @@ public class SapQueryService
             return new QueryResult { Error = connError };
 
         return await ExecuteAsync(active, sql, ct, autoQuote: false);
+    }
+
+    /// <summary>
+    /// Jalankan query APA ADANYA pada koneksi yang sudah ditentukan sebelumnya
+    /// (mis. hasil <see cref="ResolveConnectionByNameAsync"/>), tanpa memanggil
+    /// <see cref="ResolveConnectionAsync"/>. Dipakai saat pembacaan-balik data
+    /// SAP B1 milik record lama harus tetap memakai company saat record dibuat.
+    /// </summary>
+    public async Task<QueryResult> RunRawQueryAsync(string sql, DbConnectionEntry entry, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(sql))
+            return new QueryResult { Error = "Query kosong." };
+
+        return await ExecuteAsync(entry, sql, ct, autoQuote: false);
     }
 
     // Eksekusi query pada koneksi tertentu (jenis DB dari koneksi user).

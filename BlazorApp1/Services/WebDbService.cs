@@ -63,6 +63,60 @@ public class WebDbService
         return result;
     }
 
+    /// <summary>
+    /// Daftar transaksi Pajak Keluaran (header yang belum dibatalkan), dibatasi
+    /// HANYA pada koneksi SAP (company) milik user yang sedang login. Baris
+    /// dengan KoneksiDb NULL (data lama sebelum migrasi) TIDAK ditampilkan.
+    /// koneksiDb=null (mis. "No choose DB") -> tidak ada baris yang tampil.
+    /// </summary>
+    public async Task<QueryResult> GetPajakKeluaranListAsync(string? koneksiDb, CancellationToken ct = default)
+    {
+        var result = new QueryResult();
+
+        var cs = GetConnectionString();
+        if (string.IsNullOrWhiteSpace(cs))
+        {
+            result.Error = "Konfigurasi koneksi (WebDbConfig.json) belum diisi.";
+            return result;
+        }
+
+        try
+        {
+            await using var conn = new SqlConnection(cs);
+            try { await conn.OpenAsync(ct); }
+            catch { result.Error = "SAP_WEB - 500 (Internal Server Error)"; return result; }
+
+            await using var cmd = new SqlCommand(@"
+                SELECT h.DocEntry, h.DocNum, h.CreateDate, h.U_Format, h.uuid,
+                       (SELECT STRING_AGG(CAST(d.U_NumINV AS NVARCHAR(MAX)), ', ')
+                        FROM IDU_PAJAK_TRANS_DET d
+                        WHERE d.DocEntry = h.DocEntry AND ISNULL(d.U_Status, '') <> 'N') AS InvNums
+                FROM IDU_PAJAK_TRANS h
+                WHERE h.Canceled = 'N' AND h.KoneksiDb = @koneksiDb", conn)
+            { CommandTimeout = 60 };
+            cmd.Parameters.AddWithValue("@koneksiDb", (object?)koneksiDb ?? DBNull.Value);
+
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+
+            for (int i = 0; i < reader.FieldCount; i++)
+                result.Columns.Add(reader.GetName(i));
+
+            while (await reader.ReadAsync(ct))
+            {
+                var row = new object?[reader.FieldCount];
+                for (int i = 0; i < reader.FieldCount; i++)
+                    row[i] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                result.Rows.Add(row);
+            }
+        }
+        catch (Exception ex)
+        {
+            result.Error = ex.Message;
+        }
+
+        return result;
+    }
+
     /// <summary>Baca connection string dari WebDbConfig.json (dinamis).</summary>
     private string? GetConnectionString()
     {
@@ -82,7 +136,7 @@ public class WebDbService
     /// </summary>
     public async Task<(bool Ok, string? Error, int DocEntry, int DocNum, Guid Uuid)> SavePajakKeluaranAsync(
         PajakKeluaranHeader header, IReadOnlyList<FakturKeluaranRow> details,
-        int userSign = 0, string? creator = null, CancellationToken ct = default)
+        int userSign = 0, string? creator = null, string? koneksiDb = null, CancellationToken ct = default)
     {
         var cs = GetConnectionString();
         if (string.IsNullOrWhiteSpace(cs))
@@ -117,6 +171,7 @@ public class WebDbService
             cmd.Parameters.AddWithValue("@Creator", string.IsNullOrWhiteSpace(creator)
                 ? DBNull.Value
                 : creator.Length > 25 ? creator[..25] : creator);
+            cmd.Parameters.AddWithValue("@KoneksiDb", (object?)koneksiDb ?? DBNull.Value);
 
             // Table-Valued Parameter untuk baris detail.
             var pDetails = cmd.Parameters.AddWithValue("@Details", tvp);
@@ -254,7 +309,7 @@ public class WebDbService
     /// mengecualikan invoice tsb dari hasil Load Data.
     /// Bila SAP_WEB tak terjangkau -> kembalikan set kosong (tanpa filter).
     /// </summary>
-    public async Task<HashSet<(int EntryINV, string DocType)>> GetProcessedInvoiceKeysAsync(CancellationToken ct = default)
+    public async Task<HashSet<(int EntryINV, string DocType)>> GetProcessedInvoiceKeysAsync(string? koneksiDb = null, CancellationToken ct = default)
     {
         var set = new HashSet<(int, string)>();
         var cs = GetConnectionString();
@@ -267,11 +322,15 @@ public class WebDbService
             // Hanya invoice yang difaktur (U_Status='Y') pada transaksi yang
             // header-nya TIDAK dibatalkan. Bila header Canceled='Y', invoice
             // tidak dikecualikan (tetap muncul di grid).
+            // Dibatasi pada koneksi SAP (company) yang sama; baris lama tanpa
+            // KoneksiDb (sebelum migrasi) tetap ikut dibandingkan (fallback).
             await using var cmd = new SqlCommand(@"
                 SELECT d.U_EntryINV, d.U_DocType
                 FROM IDU_PAJAK_TRANS_DET d
                 JOIN IDU_PAJAK_TRANS h ON d.DocEntry = h.DocEntry
-                WHERE d.U_Status = 'Y' AND ISNULL(h.Canceled, 'N') <> 'Y'", conn);
+                WHERE d.U_Status = 'Y' AND ISNULL(h.Canceled, 'N') <> 'Y'
+                  AND (h.KoneksiDb = @koneksiDb)", conn);
+            cmd.Parameters.AddWithValue("@koneksiDb", (object?)koneksiDb ?? DBNull.Value);
             await using var r = await cmd.ExecuteReaderAsync(ct);
             while (await r.ReadAsync(ct))
             {

@@ -8,6 +8,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @inject PajakKeluaranService FpService
 @inject WebDbService WebDb
+@inject SapQueryService QuerySvc
 @inject NavigationManager Nav
 @inject Radzen.DialogService DialogService
 @inject Radzen.NotificationService Notifications
@@ -327,8 +328,10 @@
         _saving = true;
         var header = BuildHeader();
         var user = await CurrentUserAsync();   // -> kolom UserSign & Creator
+        var (koneksiEntry, _) = await QuerySvc.ResolveConnectionAsync();
+        var koneksiDb = koneksiEntry?.Nama;
         var (ok, err, docEntry, docNum, uuid) = await Task.Run(
-            () => WebDb.SavePajakKeluaranAsync(header, chosen, user.Id, user.Name));
+            () => WebDb.SavePajakKeluaranAsync(header, chosen, user.Id, user.Name, koneksiDb));
         _saving = false;
 
         if (!ok)
@@ -531,7 +534,8 @@
 
             // Kecualikan invoice yang SUDAH difaktur (ada di IDU_PAJAK_TRANS_DET
             // SAP_WEB dengan U_Status='Y') — cocokkan DocEntry + tipe dokumen.
-            var processed = await Task.Run(() => WebDb.GetProcessedInvoiceKeysAsync());
+            var (koneksiEntry, _) = await QuerySvc.ResolveConnectionAsync();
+            var processed = await Task.Run(() => WebDb.GetProcessedInvoiceKeysAsync(koneksiEntry?.Nama));
             if (processed.Count > 0)
                 _rows = _rows.Where(r => !processed.Contains((r.DocEntry, r.ObjType.ToString()))).ToList();
 

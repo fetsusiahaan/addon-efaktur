@@ -5,6 +5,7 @@
 @using BlazorApp1.Services
 @using Radzen.Blazor
 @inject WebDbService WebDb
+@inject SapQueryService QuerySvc
 @inject EFakturExportService CsvExport
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -198,6 +199,7 @@
     private string canceledFlag = "";
     private DateTime? lastUpdated;
     private string lastUpdatedBy = "";
+    private string? _koneksiDb;
     private bool _canceling;
 
     private bool IsCanceled => canceledFlag.Trim().ToUpperInvariant() == "Y";
@@ -245,7 +247,7 @@
         _docUuid = docUuid;
 
         var sql = $@"
-            SELECT h.DocNum, h.CreateDate, h.UpdateDate, h.Creator, h.Status, h.Canceled,
+            SELECT h.DocNum, h.CreateDate, h.UpdateDate, h.Creator, h.Status, h.Canceled, h.KoneksiDb,
                    d.U_EntryINV, d.U_NumINV, d.U_DateINV, d.U_BPCode, d.U_DocType, d.U_DTypeN, d.U_NoFP, d.U_BPName,
                    d.U_DocTotal, d.U_VatSum, d.U_Discount, d.U_DP, d.U_JDP, d.U_Status,
                    d.U_IDU_Pengganti, d.U_IDU_KetTambah, d.U_IDU_Referensi, d.U_IDU_JenisPajak,
@@ -289,6 +291,7 @@
             // User pembuat diambil langsung dari kolom Creator (username).
             lastUpdated = ToDate(Get(h, "UpdateDate")) ?? ToDate(Get(h, "CreateDate"));
             lastUpdatedBy = Get(h, "Creator")?.ToString()?.Trim() ?? "";
+            _koneksiDb = Get(h, "KoneksiDb")?.ToString();
         }
 
         // Abaikan baris placeholder LEFT JOIN (tanpa detail: U_EntryINV null).
@@ -331,11 +334,28 @@
     };
     private static string FmtDate(object? v) => ToDate(v) is { } d ? d.ToString("dd.MM.yyyy") : "";
 
+    // Resolve koneksi SAP B1 milik company ASAL record ini (h.KoneksiDb),
+    // bukan koneksi aktif user yang sedang membuka halaman -- supaya Show/
+    // Export tetap benar walau koneksi aktif berpindah company. Baris lama
+    // (KoneksiDb null) atau nama yang sudah tak terdaftar lagi -> fallback
+    // ke resolusi normal (perilaku sebelum migrasi, tidak diregresi).
+    private async Task<DbConnectionEntry?> ResolveExportEntryAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(_koneksiDb))
+        {
+            var (byName, _) = await QuerySvc.ResolveConnectionByNameAsync(_koneksiDb);
+            if (byName is not null) return byName;
+        }
+        var (active, _) = await QuerySvc.ResolveConnectionAsync();
+        return active;
+    }
+
     // Export CSV e-Faktur (item dari SAP B1, format seperti VB.NET).
     private async Task ExportCsv()
     {
         if (_rows.Count == 0) return;
-        var (csv, err) = await Task.Run(() => CsvExport.BuildCsvAsync(_rows));
+        var entry = await ResolveExportEntryAsync();
+        var (csv, err) = await Task.Run(() => CsvExport.BuildCsvAsync(_rows, entry));
         if (csv is not null)
         {
             var name = string.IsNullOrEmpty(docNum) ? "efaktur" : $"efaktur-{docNum}";
@@ -428,7 +448,8 @@
     private async Task ExportXml()
     {
         if (_rows.Count == 0) return;
-        var (xml, err) = await Task.Run(() => CsvExport.BuildXmlAsync(_rows));
+        var entry = await ResolveExportEntryAsync();
+        var (xml, err) = await Task.Run(() => CsvExport.BuildXmlAsync(_rows, entry));
         if (xml is not null)
         {
             var name = string.IsNullOrEmpty(docNum) ? "efaktur" : $"efaktur-{docNum}";

@@ -56,6 +56,7 @@ CREATE PROCEDURE dbo.usp_InsertPajakKeluaran
     @ToDate   DATETIME     = NULL,
     @UserSign INT          = NULL,   -- Id user aplikasi yang membuat dokumen
     @Creator  NVARCHAR(25) = NULL,   -- username pembuat dokumen (tampil di "Last updated")
+    @KoneksiDb NVARCHAR(100) = NULL, -- nama koneksi SAP asal (Database Manager), penanda company
     @Details  dbo.PajakKeluaranDetailType READONLY,
     @DocEntry INT OUTPUT,
     @Uuid     UNIQUEIDENTIFIER = NULL OUTPUT   -- pengaman URL halaman detail
@@ -83,11 +84,11 @@ BEGIN
 
         -- Header
         INSERT INTO IDU_PAJAK_TRANS
-            (DocEntry, DocNum, Canceled, Status, CreateDate, UserSign, Creator, uuid,
+            (DocEntry, DocNum, Canceled, Status, CreateDate, UserSign, Creator, uuid, KoneksiDb,
              U_Search, U_Format, U_FNum, U_TNum, U_FEntry, U_TEntry,
              U_FrCust, U_ToCust, U_FrDate, U_ToDate)
         VALUES
-            (@DocEntry, @DocNum, 'N', 'O', GETDATE(), @UserSign, @Creator, @Uuid,
+            (@DocEntry, @DocNum, 'N', 'O', GETDATE(), @UserSign, @Creator, @Uuid, @KoneksiDb,
              @Search, @Format, @FNum, @TNum, @FEntry, @TEntry,
              @FrCust, @ToCust, @FrDate, @ToDate);
 

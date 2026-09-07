@@ -5,6 +5,7 @@
 @using BlazorApp1.Services
 @using Radzen.Blazor
 @inject WebDbService WebDb
+@inject SapQueryService QuerySvc
 @inject NavigationManager Nav
 
 <PageTitle>Daftar Pajak Keluaran</PageTitle>
@@ -167,17 +168,12 @@
 
     private void OnSearch(ChangeEventArgs e) => _search = e.Value?.ToString() ?? "";
 
-    // Daftar transaksi Pajak Keluaran tersimpan (dari SAP_WEB, header yang belum dibatalkan).
-    // uuid & InvNums ikut diambil tapi DISEMBUNYIKAN dari grid:
+    // Daftar transaksi Pajak Keluaran tersimpan (dari SAP_WEB, header yang belum
+    // dibatalkan), dibatasi ke koneksi SAP (company) milik user yang sedang
+    // login -- lihat WebDbService.GetPajakKeluaranListAsync. uuid & InvNums
+    // ikut diambil tapi DISEMBUNYIKAN dari grid:
     //   - uuid    : membentuk URL detail.
     //   - InvNums : gabungan nomor invoice (U_NumINV) per dokumen, untuk pencarian.
-    private const string Sql = @"
-        SELECT h.DocEntry, h.DocNum, h.CreateDate, h.U_Format, h.uuid,
-               (SELECT STRING_AGG(CAST(d.U_NumINV AS NVARCHAR(MAX)), ', ')
-                FROM IDU_PAJAK_TRANS_DET d
-                WHERE d.DocEntry = h.DocEntry AND ISNULL(d.U_Status, '') <> 'N') AS InvNums
-        FROM IDU_PAJAK_TRANS h
-        WHERE h.Canceled = 'N'";
 
     // Muat data SETELAH render pertama (di circuit), bukan saat prerender,
     // agar halaman tampil cepat dan tidak menunggu query DB.
@@ -210,7 +206,8 @@
 
         // Query dijalankan di thread pool agar driver DB yang memblokir tidak
         // membekukan UI/Nav Menu selama menunggu.
-        result = await Task.Run(() => WebDb.RunQueryAsync(Sql));
+        var (koneksiEntry, _) = await QuerySvc.ResolveConnectionAsync();
+        result = await Task.Run(() => WebDb.GetPajakKeluaranListAsync(koneksiEntry?.Nama));
 
         if (result?.Error is null && result is not null)
         {
